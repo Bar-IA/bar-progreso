@@ -8,7 +8,7 @@ return ( <header className="sticky top-0 z-50 backdrop-blur-md bg-black/70 borde
 
     <Link href="/">
       <Image
-        src="/logoV3.png"
+        src="/logoV3.PNG"
         alt="Bar Progreso"
         width={180}
         height={70}

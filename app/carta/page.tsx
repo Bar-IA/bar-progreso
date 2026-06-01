@@ -117,11 +117,11 @@ return ( <main>
 
     </div>
 
-    {item.description && (
-      <p className="text-gray-400 mt-3">
-        {item.description}
-      </p>
-    )}
+    {"description" in item && item.description && (
+  <p className="text-gray-400 mt-3">
+    {item.description}
+  </p>
+)}
 
     {(item.name === "Kyoto Angus Burger" ||
       item.name === "Pizza Trufada" ||

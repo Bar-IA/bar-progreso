@@ -185,7 +185,7 @@ return ( <main>
   onClick={() => setOpenCart(!openCart)}
   className="
     fixed
-    bottom-6
+    bottom-24
     right-6
     z-50
     bg-[#b9742d]

@@ -34,7 +34,17 @@ return ( <main className="bg-[#0f0f0f] text-white">
             Plaza del Progreso · Jerez de la Frontera
           </span>
 
-          <h1 className="text-6xl md:text-8xl font-black leading-none mt-6">
+          <h1
+  className="
+    text-4xl
+    sm:text-5xl
+    md:text-8xl
+    font-black
+    leading-tight
+    mt-6
+    break-words
+  "
+>
             HAMBURGUESAS
             <br />
             PIZZAS Y

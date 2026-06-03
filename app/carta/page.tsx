@@ -15,6 +15,37 @@ useState("burgers");
 const [products, setProducts] =
 useState<any[]>([]);
 const [cart, setCart] = useState<any[]>([]);
+const [pedidoActivo, setPedidoActivo] =
+  useState<any[]>([]);
+
+  const totalConsumido =
+  pedidoActivo.reduce(
+    (acc, item) =>
+      acc + Number(item.price),
+    0
+  );
+
+  const pedidoActivoAgrupado = Object.values(
+  pedidoActivo.reduce((acc: any, item: any) => {
+
+    if (!acc[item.name]) {
+
+      acc[item.name] = {
+        ...item,
+        cantidad: 1
+      };
+
+    } else {
+
+      acc[item.name].cantidad++;
+
+    }
+
+    return acc;
+
+  }, {})
+);
+
 const [openCart, setOpenCart] = useState(false);
 useEffect(() => {
 
@@ -38,23 +69,96 @@ useEffect(() => {
 
 }, []);
 
+
   useEffect(() => {
+
+    
 
   const params = new URLSearchParams(
     window.location.search
   );
 
-  setMesa(
-    params.get("mesa") || "Sin mesa"
+  const mesaUrl = params.get("mesa");
+
+  console.log("Mesa URL:", mesaUrl);
+console.log("Mesa guardada:", localStorage.getItem("mesa"));
+console.log("Timestamp:", localStorage.getItem("mesa_timestamp"));
+
+  if (mesaUrl) {
+
+    localStorage.setItem(
+      "mesa",
+      mesaUrl
+    );
+
+    localStorage.setItem(
+      "mesa_timestamp",
+      Date.now().toString()
+    );
+
+    setMesa(mesaUrl);
+
+  } else {
+
+    const mesaGuardada =
+      localStorage.getItem("mesa");
+
+    const timestamp =
+      localStorage.getItem(
+        "mesa_timestamp"
+      );
+
+    if (
+      mesaGuardada &&
+      timestamp
+    ) {
+
+      const horas =
+        (Date.now() -
+          Number(timestamp))
+        / 1000 / 60 / 60;
+
+      if (horas < 4) {
+
+        setMesa(mesaGuardada);
+
+      } else {
+
+        localStorage.removeItem(
+          "mesa"
+        );
+
+        localStorage.removeItem(
+          "mesa_timestamp"
+        );
+
+      }
+
+    }
+
+  }
+  const pedidoGuardado =
+  localStorage.getItem("pedido_activo");
+
+if (pedidoGuardado) {
+
+  setPedidoActivo(
+    JSON.parse(pedidoGuardado)
   );
 
+}
+
 }, []);
+
 
 const addToCart = (item: any) => {
   console.log("ITEM:", item);
 
   try {
-    setCart([...cart, item]);
+    setCart((prev) => [
+      ...prev,
+      item
+    ]);
   } catch (error) {
     console.error(error);
   }
@@ -66,6 +170,27 @@ const removeFromCart = (index: number) => {
 const total = cart.reduce((acc, item) => {
   return acc + Number(item.price);
 }, 0);
+
+const cartAgrupado = Object.values(
+  cart.reduce((acc: any, item: any) => {
+
+    if (!acc[item.name]) {
+
+      acc[item.name] = {
+        ...item,
+        cantidad: 1
+      };
+
+    } else {
+
+      acc[item.name].cantidad++;
+
+    }
+
+    return acc;
+
+  }, {})
+);
 
 
 const categorias = [
@@ -209,6 +334,8 @@ return ( <main>
   Añadir al carrito
 </button>
 
+
+
   </div>
 
 ))}
@@ -243,6 +370,7 @@ return ( <main>
 
 {/* BURBUJA CARRITO */}
 
+{mesa !== "Sin mesa" && (
 <button
   onClick={() => setOpenCart(!openCart)}
   className="
@@ -285,6 +413,7 @@ return ( <main>
   )}
 
 </button>
+)}
 
 {/* PANEL CARRITO */}
 
@@ -311,6 +440,38 @@ return ( <main>
   Mesa {mesa}
 </h3>
 
+{pedidoActivo.length > 0 && (
+
+  <div className="mb-4 p-3 bg-zinc-800 rounded-xl">
+
+    <p className="font-semibold mb-2">
+      🟢 Pedido actual
+    </p>
+
+    {pedidoActivoAgrupado.map((item: any, index) => (
+
+  <p key={index}>
+    • {item.name}
+    {item.cantidad > 1 &&
+      ` x${item.cantidad}`}
+  </p>
+
+))}
+
+    <div className="mt-3 pt-3 border-t border-zinc-700">
+
+  <p className="font-bold text-[#b9742d]">
+    Total consumido:
+    {" "}
+    {totalConsumido.toFixed(2)}€
+  </p>
+
+</div>
+
+  </div>
+
+)}
+
     {cart.length === 0 ? (
 
       <p className="text-gray-400">
@@ -321,7 +482,7 @@ return ( <main>
 
       <div className="space-y-2 text-sm">
 
-        {cart.map((item, index) => (
+        {cartAgrupado.map((item: any, index) => (
 
   <div
     key={index}
@@ -329,24 +490,73 @@ return ( <main>
   >
 
     <div>
-      <p>{item.name}</p>
+      <p>
+  {item.name}
+  {item.cantidad > 1 &&
+    ` x${item.cantidad}`}
+</p>
       <p className="text-[#b9742d] text-sm">
-  {Number(item.price).toFixed(2)}€
+  {(Number(item.price) * item.cantidad).toFixed(2)}€
 </p>
     </div>
 
-    <button
-      onClick={() =>
-        removeFromCart(index)
-      }
-      className="
-        text-red-500
-        font-bold
-        text-lg
-      "
-    >
-      ✕
-    </button>
+    <div className="flex items-center gap-3">
+
+  <button
+    onClick={() => {
+
+      const indice =
+        cart.findIndex(
+          p => p.name === item.name
+        );
+
+      if (indice === -1) return;
+
+      setCart(
+        cart.filter(
+          (_, i) => i !== indice
+        )
+      );
+
+    }}
+    className="
+      bg-zinc-800
+      w-8
+      h-8
+      rounded-lg
+      font-bold
+    "
+  >
+    -
+  </button>
+
+  <span className="font-bold">
+    {item.cantidad}
+  </span>
+
+  <button
+    onClick={() => {
+
+      setCart(prev => [
+        ...prev,
+        {
+          ...item
+        }
+      ]);
+
+    }}
+    className="
+      bg-[#b9742d]
+      w-8
+      h-8
+      rounded-lg
+      font-bold
+    "
+  >
+    +
+  </button>
+
+</div>
 
   </div>
 
@@ -371,10 +581,41 @@ return ( <main>
     <button
   onClick={() => {
 
-  const pedido = cart
-    .map(item =>  `• ${item.name} - ${Number(item.price).toFixed(2)}€`
-)
-    .join("\n");
+
+    const pedidoAgrupado = Object.values(
+  cart.reduce((acc: any, item: any) => {
+
+    if (!acc[item.name]) {
+
+      acc[item.name] = {
+        ...item,
+        cantidad: 1
+      };
+
+    } else {
+
+      acc[item.name].cantidad++;
+
+    }
+
+    return acc;
+
+  }, {})
+);
+  const pedido = pedidoAgrupado
+  .map((item: any) =>
+
+    `• ${item.name}${
+      item.cantidad > 1
+        ? ` x${item.cantidad}`
+        : ""
+    } - ${(
+      Number(item.price) *
+      item.cantidad
+    ).toFixed(2)}€`
+
+  )
+  .join("\n");
 
   const mensaje = encodeURIComponent(
 `🍔 NUEVO PEDIDO
@@ -393,6 +634,31 @@ Enviado desde Bar IA`
     "_blank"
   );
 
+const pedidoAnterior =
+  JSON.parse(
+    localStorage.getItem(
+      "pedido_activo"
+    ) || "[]"
+  );
+
+const nuevoPedido = [
+  ...pedidoAnterior,
+  ...cart
+];
+
+setPedidoActivo(
+  nuevoPedido
+);
+
+localStorage.setItem(
+  "pedido_activo",
+  JSON.stringify(
+    nuevoPedido
+  )
+);
+
+setCart([]);
+
 }}
   className="
     w-full
@@ -404,6 +670,72 @@ Enviado desde Bar IA`
   "
 >
   Confirmar Pedido
+</button>
+
+<button
+  onClick={() => {
+
+    const confirmar =
+  confirm(
+    `¿Llamar al camarero a la mesa ${mesa}?`
+  );
+
+if (!confirmar) return;
+
+    const mensaje =
+      encodeURIComponent(
+        `🙋 Mesa ${mesa} solicita camarero`
+      );
+
+    window.open(
+      `https://wa.me/34655311967?text=${mensaje}`,
+      "_blank"
+    );
+
+  }}
+  className="
+    w-full
+    mt-3
+    bg-blue-600
+    py-3
+    rounded-xl
+    font-semibold
+  "
+>
+  🙋 Llamar camarero
+</button>
+
+<button
+  onClick={() => {
+
+    const confirmar =
+  confirm(
+    `¿Solicitar la cuenta para la mesa ${mesa}?`
+  );
+
+if (!confirmar) return;
+
+    const mensaje =
+      encodeURIComponent(
+        `💰 Mesa ${mesa} solicita la cuenta`
+      );
+
+    window.open(
+      `https://wa.me/34655311967?text=${mensaje}`,
+      "_blank"
+    );
+
+  }}
+  className="
+    w-full
+    mt-3
+    bg-green-600
+    py-3
+    rounded-xl
+    font-semibold
+  "
+>
+  💰 Pedir cuenta
 </button>
 
   </div>

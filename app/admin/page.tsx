@@ -5,6 +5,9 @@ import { supabase } from "@/lib/supabase";
 
 export default function AdminPage() {
 
+const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
+const [logged, setLogged] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -25,9 +28,29 @@ export default function AdminPage() {
 
   };
 
+
+
   useEffect(() => {
     loadProducts();
   }, []);
+
+useEffect(() => {
+
+  const checkSession = async () => {
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session) {
+      setLogged(true);
+    }
+
+  };
+
+  checkSession();
+
+}, []);
 
   const addProduct = async () => {
 
@@ -83,6 +106,23 @@ export default function AdminPage() {
 
   };
 
+const login = async () => {
+
+  const { error } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+  if (error) {
+    alert("Credenciales incorrectas");
+    return;
+  }
+
+  setLogged(true);
+
+};
+
 const groupedProducts = products.reduce(
   (acc: any, product) => {
 
@@ -98,16 +138,90 @@ const groupedProducts = products.reduce(
   {}
 );
 
+if (!logged) {
+
+  return (
+
+    <main className="min-h-screen flex items-center justify-center">
+
+      <div className="bg-zinc-900 p-8 rounded-3xl w-full max-w-md">
+
+        <h1 className="text-3xl font-bold mb-6">
+          Acceso Admin
+        </h1>
+
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
+          className="w-full border p-3 mb-4 text-black"
+        />
+
+        <input
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
+          className="w-full border p-3 mb-4 text-black"
+        />
+
+        <button
+          onClick={login}
+          className="
+            w-full
+            bg-[#b9742d]
+            py-3
+            rounded-xl
+          "
+        >
+          Entrar
+        </button>
+
+      </div>
+
+    </main>
+
+  );
+
+}
+
   return (
 
     <main className="p-10">
 
-      <h1 className="text-4xl font-bold mb-8">
-        Panel Admin
-        
-      </h1>
+  <div className="flex justify-between items-center mb-8">
 
-      <div className="flex gap-4 mb-8">
+    <h1 className="text-4xl font-bold">
+      Panel Admin
+    </h1>
+
+    <button
+      onClick={async () => {
+
+        await supabase.auth.signOut();
+
+        setLogged(false);
+
+      }}
+      className="
+        bg-red-600
+        px-4
+        py-2
+        rounded
+      "
+    >
+      Cerrar sesión
+    </button>
+
+  </div>
+
+  <div className="flex gap-4 mb-8">
+    
 <select
   value={category}
   onChange={(e) =>

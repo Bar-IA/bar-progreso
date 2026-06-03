@@ -1,20 +1,15 @@
 "use client";
-export const dynamic = "force-dynamic";
 
 import {
   useEffect,
   useState
 } from "react";
 
-import {
-  useSearchParams
-} from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { fullMenu } from "@/data/fullMenu";
 
 export default function CartaPage() {
-const searchParams = useSearchParams();
-const mesa = searchParams.get("mesa") || "Sin mesa";
+
+const [mesa, setMesa] = useState("Sin mesa");
 const [categoria, setCategoria] =
 useState("burgers");
 const [products, setProducts] =
@@ -38,7 +33,20 @@ useEffect(() => {
 
   };
 
+
   loadProducts();
+
+}, []);
+
+  useEffect(() => {
+
+  const params = new URLSearchParams(
+    window.location.search
+  );
+
+  setMesa(
+    params.get("mesa") || "Sin mesa"
+  );
 
 }, []);
 

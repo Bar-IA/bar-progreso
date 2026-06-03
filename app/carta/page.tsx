@@ -6,6 +6,11 @@ import { fullMenu } from "@/data/fullMenu";
 export default function CartaPage() {
 const [categoria, setCategoria] =
 useState("burgers");
+const [cart, setCart] = useState<any[]>([]);
+const [openCart, setOpenCart] = useState(false);
+const addToCart = (item: any) => {
+  setCart([...cart, item]);
+};
 
 const categorias = [
 {
@@ -136,10 +141,11 @@ return ( <main>
     )}
 
     <button
-      className="mt-5 w-full bg-[#b9742d] hover:bg-[#c98237] py-3 rounded-xl font-semibold transition"
-    >
-      Añadir al carrito
-    </button>
+  onClick={() => addToCart(item)}
+  className="mt-5 w-full bg-[#b9742d] hover:bg-[#c98237] py-3 rounded-xl font-semibold transition"
+>
+  Añadir al carrito
+</button>
 
   </div>
 
@@ -173,61 +179,101 @@ return ( <main>
 
   </section>
 
-{/* CARRITO */}
+{/* BURBUJA CARRITO */}
 
-<div className="fixed bottom-6 right-6 z-50">
+<button
+  onClick={() => setOpenCart(!openCart)}
+  className="
+    fixed
+    bottom-6
+    right-6
+    z-50
+    bg-[#b9742d]
+    w-16
+    h-16
+    rounded-full
+    text-2xl
+    shadow-2xl
+    flex
+    items-center
+    justify-center
+  "
+>
+  🛒
 
-  <button
+  {cart.length > 0 && (
+    <span
+      className="
+        absolute
+        -top-2
+        -right-2
+        bg-red-600
+        text-white
+        w-7
+        h-7
+        rounded-full
+        text-xs
+        flex
+        items-center
+        justify-center
+      "
+    >
+      {cart.length}
+    </span>
+  )}
+
+</button>
+
+{/* PANEL CARRITO */}
+
+{openCart && (
+
+  <div
     className="
-      bg-white
-      text-black
-      px-6
-      py-4
-      rounded-full
+      fixed
+      bottom-24
+      right-6
+      z-40
+      bg-zinc-900
+      border
+      border-zinc-800
+      rounded-3xl
+      p-5
+      w-80
+      max-w-[90vw]
       shadow-2xl
-      font-bold
-      hover:scale-105
-      transition
     "
   >
-    🛒 Carrito (3)
-  </button>
-
-</div>
-
-<div className="fixed bottom-24 right-6 z-40">
-
-  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 w-72 shadow-2xl">
 
     <h3 className="font-bold text-lg mb-4">
       Mesa 5
     </h3>
 
-    <div className="space-y-2 text-sm">
+    {cart.length === 0 ? (
 
-      <div className="flex justify-between">
-        <span>Kyoto Angus Burger</span>
-        <span>8,50€</span>
+      <p className="text-gray-400">
+        Tu carrito está vacío.
+      </p>
+
+    ) : (
+
+      <div className="space-y-2 text-sm">
+
+        {cart.map((item, index) => (
+
+          <div
+            key={index}
+            className="flex justify-between"
+          >
+            <span>{item.name}</span>
+            <span>{item.price}</span>
+          </div>
+
+        ))}
+
       </div>
 
-      <div className="flex justify-between">
-        <span>Pizza Trufada</span>
-        <span>14€</span>
-      </div>
-
-      <div className="flex justify-between">
-        <span>Coca-Cola</span>
-        <span>2,20€</span>
-      </div>
-
-    </div>
-
-    <hr className="my-4 border-zinc-700" />
-
-    <div className="flex justify-between font-bold text-[#b9742d]">
-      <span>Total</span>
-      <span>24,70€</span>
-    </div>
+    )}
 
     <button
       className="
@@ -244,8 +290,7 @@ return ( <main>
 
   </div>
 
-</div>
-
+)}
 </main>
 
 );

@@ -104,6 +104,7 @@ const groupedProducts = products.reduce(
 
       <h1 className="text-4xl font-bold mb-8">
         Panel Admin
+        
       </h1>
 
       <div className="flex gap-4 mb-8">

@@ -1,5 +1,5 @@
 "use client";
-import { useSearchParams } from "next/navigation";
+
 import { useState } from "react";
 import { fullMenu } from "@/data/fullMenu";
 
@@ -23,11 +23,6 @@ const total = cart.reduce((acc, item) => {
 
   return acc + precio;
 }, 0);
-
-const searchParams = useSearchParams();
-
-const mesa =
-  searchParams.get("mesa") || "5";
 
 const categorias = [
 {
@@ -262,9 +257,9 @@ return ( <main>
     "
   >
 
- <h3 className="font-bold text-lg mb-4">
-  Mesa {mesa}
-</h3>
+    <h3 className="font-bold text-lg mb-4">
+      Mesa 5
+    </h3>
 
     {cart.length === 0 ? (
 
@@ -333,7 +328,7 @@ return ( <main>
   const mensaje = encodeURIComponent(
 `🍔 NUEVO PEDIDO
 
-Mesa ${mesa}
+Mesa 5
 
 ${pedido}
 

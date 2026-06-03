@@ -419,7 +419,18 @@ return ( <main>
 
 {openCart && (
 
-  <div
+  <>
+
+    <div
+      className="
+        fixed
+        inset-0
+        z-30
+      "
+      onClick={() => setOpenCart(false)}
+    />
+
+    <div
     className="
       fixed
       bottom-24
@@ -739,6 +750,8 @@ if (!confirmar) return;
 </button>
 
   </div>
+
+  </>
 
 )}
 </main>

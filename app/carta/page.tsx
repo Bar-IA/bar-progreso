@@ -1,5 +1,5 @@
 "use client";
-
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { fullMenu } from "@/data/fullMenu";
 
@@ -11,6 +11,23 @@ const [openCart, setOpenCart] = useState(false);
 const addToCart = (item: any) => {
   setCart([...cart, item]);
 };
+const removeFromCart = (index: number) => {
+  setCart(cart.filter((_, i) => i !== index));
+};
+const total = cart.reduce((acc, item) => {
+  const precio = Number(
+    item.price
+      .replace("€", "")
+      .replace(",", ".")
+  );
+
+  return acc + precio;
+}, 0);
+
+const searchParams = useSearchParams();
+
+const mesa =
+  searchParams.get("mesa") || "5";
 
 const categorias = [
 {
@@ -245,9 +262,9 @@ return ( <main>
     "
   >
 
-    <h3 className="font-bold text-lg mb-4">
-      Mesa 5
-    </h3>
+ <h3 className="font-bold text-lg mb-4">
+  Mesa {mesa}
+</h3>
 
     {cart.length === 0 ? (
 
@@ -261,32 +278,87 @@ return ( <main>
 
         {cart.map((item, index) => (
 
-          <div
-            key={index}
-            className="flex justify-between"
-          >
-            <span>{item.name}</span>
-            <span>{item.price}</span>
-          </div>
+  <div
+    key={index}
+    className="flex justify-between items-center"
+  >
 
-        ))}
+    <div>
+      <p>{item.name}</p>
+      <p className="text-[#b9742d] text-sm">
+        {item.price}
+      </p>
+    </div>
+
+    <button
+      onClick={() =>
+        removeFromCart(index)
+      }
+      className="
+        text-red-500
+        font-bold
+        text-lg
+      "
+    >
+      ✕
+    </button>
+
+  </div>
+
+))}
 
       </div>
 
     )}
 
+    <hr className="my-4 border-zinc-700" />
+
+<div className="flex justify-between font-bold text-[#b9742d]">
+
+  <span>Total</span>
+
+  <span>
+    {total.toFixed(2)}€
+  </span>
+
+</div>
+    
     <button
-      className="
-        w-full
-        mt-4
-        bg-[#b9742d]
-        py-3
-        rounded-xl
-        font-semibold
-      "
-    >
-      Confirmar Pedido
-    </button>
+  onClick={() => {
+
+  const pedido = cart
+    .map(item => `• ${item.name} - ${item.price}`)
+    .join("\n");
+
+  const mensaje = encodeURIComponent(
+`🍔 NUEVO PEDIDO
+
+Mesa ${mesa}
+
+${pedido}
+
+Total: ${total.toFixed(2)}€
+
+Enviado desde Bar IA`
+  );
+
+  window.open(
+    `https://wa.me/34655311967?text=${mensaje}`,
+    "_blank"
+  );
+
+}}
+  className="
+    w-full
+    mt-4
+    bg-[#b9742d]
+    py-3
+    rounded-xl
+    font-semibold
+  "
+>
+  Confirmar Pedido
+</button>
 
   </div>
 

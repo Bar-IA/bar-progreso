@@ -36,13 +36,13 @@ return ( <main className="bg-[#0f0f0f] text-white">
 
           <h1
   className="
-    text-4xl
+      text-3xl
     sm:text-5xl
     md:text-8xl
     font-black
-    leading-tight
+    leading-[0.9]
     mt-6
-    break-words
+    max-w-[90vw]
   "
 >
             HAMBURGUESAS

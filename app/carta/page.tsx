@@ -1,28 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { fullMenu } from "@/data/fullMenu";
 
 export default function CartaPage() {
 const [categoria, setCategoria] =
 useState("burgers");
+const [products, setProducts] =
+useState<any[]>([]);
 const [cart, setCart] = useState<any[]>([]);
 const [openCart, setOpenCart] = useState(false);
+useEffect(() => {
+
+  const loadProducts = async () => {
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*");
+
+    console.log(data);
+    console.log(error);
+
+    if (data) {
+      setProducts(data);
+    }
+
+  };
+
+  loadProducts();
+
+}, []);
+
 const addToCart = (item: any) => {
-  setCart([...cart, item]);
+  console.log("ITEM:", item);
+
+  try {
+    setCart([...cart, item]);
+  } catch (error) {
+    console.error(error);
+  }
 };
+
 const removeFromCart = (index: number) => {
   setCart(cart.filter((_, i) => i !== index));
 };
 const total = cart.reduce((acc, item) => {
-  const precio = Number(
-    item.price
-      .replace("€", "")
-      .replace(",", ".")
-  );
-
-  return acc + precio;
+  return acc + Number(item.price);
 }, 0);
+
 
 const categorias = [
 {
@@ -41,10 +67,16 @@ nombre: "🍤 Tapas",
 id: "patatas",
 nombre: "🍟 Patatas",
 },
+{
+id: "Bebidas",
+nombre: "🍹 Bebidas",
+},
 ];
 
-const items =
-fullMenu[categoria as keyof typeof fullMenu];
+const items = products.filter(
+  (product) =>
+    product.category === categoria
+);
 
 return ( <main>
 

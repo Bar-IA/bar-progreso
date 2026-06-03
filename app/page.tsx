@@ -10,7 +10,7 @@ return ( <main className="bg-[#0f0f0f] text-white">
 
   {/* HERO */}
 
-  <section className="relative min-h-screen overflow-hidden">
+  <section className="relative min-h-screen">
 
     <div
       className="absolute inset-0 bg-cover bg-center"

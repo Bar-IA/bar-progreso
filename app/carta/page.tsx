@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState
+} from "react";
+
+import {
+  useSearchParams
+} from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { fullMenu } from "@/data/fullMenu";
 
 export default function CartaPage() {
+const searchParams = useSearchParams();
+const mesa = searchParams.get("mesa") || "Sin mesa";
 const [categoria, setCategoria] =
 useState("burgers");
 const [products, setProducts] =
@@ -161,8 +170,8 @@ return ( <main>
       </h3>
 
       <span className="text-[#b9742d] font-bold">
-        {item.price}
-      </span>
+  {Number(item.price).toFixed(2)}€
+</span>
 
     </div>
 
@@ -290,8 +299,8 @@ return ( <main>
   >
 
     <h3 className="font-bold text-lg mb-4">
-      Mesa 5
-    </h3>
+  Mesa {mesa}
+</h3>
 
     {cart.length === 0 ? (
 
@@ -313,8 +322,8 @@ return ( <main>
     <div>
       <p>{item.name}</p>
       <p className="text-[#b9742d] text-sm">
-        {item.price}
-      </p>
+  {Number(item.price).toFixed(2)}€
+</p>
     </div>
 
     <button
@@ -354,20 +363,21 @@ return ( <main>
   onClick={() => {
 
   const pedido = cart
-    .map(item => `• ${item.name} - ${item.price}`)
+    .map(item =>  `• ${item.name} - ${Number(item.price).toFixed(2)}€`
+)
     .join("\n");
 
   const mensaje = encodeURIComponent(
 `🍔 NUEVO PEDIDO
 
-Mesa 5
+Mesa ${mesa}
 
 ${pedido}
 
 Total: ${total.toFixed(2)}€
 
 Enviado desde Bar IA`
-  );
+);
 
   window.open(
     `https://wa.me/34655311967?text=${mensaje}`,

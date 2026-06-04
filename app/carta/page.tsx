@@ -14,16 +14,21 @@ const [categoria, setCategoria] =
 useState("burgers");
 const [products, setProducts] =
 useState<any[]>([]);
+
+const [estadoPedido, setEstadoPedido] =
+  useState<string | null>(null);
 const [cart, setCart] = useState<any[]>([]);
 const [pedidoActivo, setPedidoActivo] =
   useState<any[]>([]);
+  const [pedidoActual, setPedidoActual] =
+  useState<any>(null);
 
   const totalConsumido =
-  pedidoActivo.reduce(
-    (acc, item) =>
-      acc + Number(item.price),
-    0
-  );
+  pedidoActual
+    ? Number(
+        pedidoActual.total
+      )
+    : 0;
 
   const pedidoActivoAgrupado = Object.values(
   pedidoActivo.reduce((acc: any, item: any) => {
@@ -46,14 +51,56 @@ const [pedidoActivo, setPedidoActivo] =
   }, {})
 );
 
+const pedidoActualAgrupado =
+  pedidoActual?.pedido
+
+    ? Object.values(
+
+        pedidoActual.pedido.reduce(
+          (
+            acc: any,
+            item: any
+          ) => {
+
+            if (
+              !acc[item.name]
+            ) {
+
+              acc[item.name] = {
+                ...item,
+                cantidad: 1
+              };
+
+            } else {
+
+              acc[
+                item.name
+              ].cantidad++;
+
+            }
+
+            return acc;
+
+          },
+          {}
+        )
+
+      )
+
+    : [];
+
 const [openCart, setOpenCart] = useState(false);
 useEffect(() => {
 
   const loadProducts = async () => {
 
     const { data, error } = await supabase
-      .from("products")
-      .select("*");
+  .from("products")
+  .select("*")
+  .eq("restaurant_id", 1)
+  .eq("active", true);
+      
+      
 
     console.log(data);
     console.log(error);
@@ -66,6 +113,31 @@ useEffect(() => {
 
 
   loadProducts();
+
+  const channel = supabase
+  .channel("products-realtime")
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "products"
+    },
+    async () => {
+
+      await loadProducts();
+
+    }
+  )
+  .subscribe();
+
+  return () => {
+
+  supabase.removeChannel(
+    channel
+  );
+
+};
 
 }, []);
 
@@ -137,18 +209,91 @@ console.log("Timestamp:", localStorage.getItem("mesa_timestamp"));
     }
 
   }
-  const pedidoGuardado =
-  localStorage.getItem("pedido_activo");
+ // const pedidoGuardado =
+ // localStorage.getItem("pedido_activo");
 
-if (pedidoGuardado) {
+// if (pedidoGuardado) {
 
-  setPedidoActivo(
-    JSON.parse(pedidoGuardado)
+ // setPedidoActivo(
+  //  JSON.parse(pedidoGuardado)
+ // );
+
+//}
+
+const pedidoId =
+  localStorage.getItem(
+    "pedido_id"
   );
+
+if (mesa !== "Sin mesa") {
+
+  const cargarEstado =
+    async () => {
+
+     const { data, error } =
+  await supabase
+    .from("orders")
+    .select("*")
+    .eq("mesa", mesa)
+    .eq("cuenta_abierta", true)
+    .maybeSingle();
+
+    console.log("MESA:", mesa);
+console.log("DATA:", data);
+console.log("ENTRA EN IF?", !!data);
+console.log("ERROR:", error);
+      if (data) {
+
+        setEstadoPedido(
+          data.estado
+        );
+        setPedidoActual(data);
+
+      }
+
+    };
+
+  cargarEstado();
+
+  const channel = supabase
+  .channel(
+    `pedido-${pedidoId}`
+  )
+  .on(
+    "postgres_changes",
+    {
+      event: "UPDATE",
+      schema: "public",
+      table: "orders"
+    },
+    async (payload) => {
+
+      if (
+        payload.new.id ===
+        Number(pedidoId)
+      ) {
+
+        setEstadoPedido(
+          payload.new.estado
+        );
+
+      }
+
+    }
+  )
+  .subscribe();
+
+  return () => {
+
+  supabase.removeChannel(
+    channel
+  );
+
+};
 
 }
 
-}, []);
+}, [mesa]);
 
 
 const addToCart = (item: any) => {
@@ -451,7 +596,7 @@ return ( <main>
   Mesa {mesa}
 </h3>
 
-{pedidoActivo.length > 0 && (
+{pedidoActual && (
 
   <div className="mb-4 p-3 bg-zinc-800 rounded-xl">
 
@@ -459,7 +604,46 @@ return ( <main>
       🟢 Pedido actual
     </p>
 
-    {pedidoActivoAgrupado.map((item: any, index) => (
+    {estadoPedido && (
+
+  <div className="mb-3">
+
+    <p
+      className={`
+        font-bold
+
+        ${
+          estadoPedido === "Pendiente"
+            ? "text-yellow-500"
+
+            : estadoPedido ===
+              "Preparando"
+            ? "text-orange-500"
+
+            : "text-green-500"
+        }
+      `}
+    >
+
+      {estadoPedido ===
+      "Pendiente"
+
+        ? "🟡 Pedido recibido"
+
+        : estadoPedido ===
+          "Preparando"
+
+        ? "🟠 Preparándose"
+
+        : "🟢 Servido"}
+
+    </p>
+
+  </div>
+
+)}
+
+    {pedidoActualAgrupado.map((item: any, index) => (
 
   <p key={index}>
     • {item.name}
@@ -645,28 +829,122 @@ Enviado desde Bar IA`
     "_blank"
   );
 
-const pedidoAnterior =
-  JSON.parse(
-    localStorage.getItem(
-      "pedido_activo"
-    ) || "[]"
-  );
+  (async () => {
 
-const nuevoPedido = [
-  ...pedidoAnterior,
-  ...cart
-];
+  const { data: cuentaAbierta } =
+    await supabase
+      .from("orders")
+      .select("*")
+      .eq("mesa",  mesa)
+      .eq("cuenta_abierta", true)
+      .single();
+      console.log("CUENTA ABIERTA", cuentaAbierta);
+console.log("MESA", mesa);
 
-setPedidoActivo(
-  nuevoPedido
-);
+  if (!cuentaAbierta) {
 
-localStorage.setItem(
-  "pedido_activo",
-  JSON.stringify(
-    nuevoPedido
-  )
-);
+    const { data, error } =
+      await supabase
+        .from("orders")
+        .insert([
+          {
+            restaurant_id: 1,
+            mesa,
+            pedido: cart,
+            total,
+            estado: "Pendiente",
+            cuenta_abierta: true, 
+            novedad: true
+          }
+        ])
+        .select()
+        .single();
+
+    if (error) {
+
+      console.error(error);
+
+    } else {
+
+      localStorage.setItem(
+        "pedido_id",
+        data.id.toString()
+      );
+      setPedidoActual(data);
+setEstadoPedido(data.estado);
+
+    }
+
+  } else {
+
+    const pedidoActualizado = [
+      ...cuentaAbierta.pedido,
+      ...cart
+    ];
+
+    const nuevoTotal =
+      Number(cuentaAbierta.total) +
+      total;
+
+    const { error } =
+      await supabase
+  .from("orders")
+  .update({
+    pedido: pedidoActualizado,
+    total: nuevoTotal,
+    estado: "Pendiente", 
+    novedad: true
+  })
+        .eq(
+          "id",
+          cuentaAbierta.id
+        );
+
+    if (error) {
+
+      console.error(error);
+
+    } else {
+
+      localStorage.setItem(
+        "pedido_id",
+        cuentaAbierta.id.toString()
+      );
+
+      setPedidoActual({
+  ...cuentaAbierta,
+  pedido: pedidoActualizado,
+  total: nuevoTotal
+});
+
+    }
+
+  }
+
+})();
+
+//const pedidoAnterior =
+  //JSON.parse(
+    //localStorage.getItem(
+      //</div>"pedido_activo"
+//</>    ) || "[]"
+//  );
+
+//</main>const nuevoPedido = [
+ // ...pedidoAnterior,
+ // ...cart
+//];
+
+//setPedidoActivo(
+ // nuevoPedido
+//);
+
+//localStorage.setItem(
+//  "pedido_activo",
+ // JSON.stringify(
+ //   nuevoPedido
+ // )
+//);
 
 setCart([]);
 
@@ -684,7 +962,7 @@ setCart([]);
 </button>
 
 <button
-  onClick={() => {
+  onClick={async () => {
 
     const confirmar =
   confirm(
@@ -697,7 +975,15 @@ if (!confirmar) return;
       encodeURIComponent(
         `🙋 Mesa ${mesa} solicita camarero`
       );
-
+await supabase
+  .from("solicitudes")
+  .insert([
+    {
+      restaurant_id: 1,
+      mesa,
+      tipo: "camarero"
+    }
+  ]);
     window.open(
       `https://wa.me/34655311967?text=${mensaje}`,
       "_blank"
@@ -717,7 +1003,7 @@ if (!confirmar) return;
 </button>
 
 <button
-  onClick={() => {
+  onClick={async () => {
 
     const confirmar =
   confirm(
@@ -730,7 +1016,15 @@ if (!confirmar) return;
       encodeURIComponent(
         `💰 Mesa ${mesa} solicita la cuenta`
       );
-
+await supabase
+  .from("solicitudes")
+  .insert([
+    {
+      restaurant_id: 1,
+      mesa,
+      tipo: "cuenta"
+    }
+  ]);
     window.open(
       `https://wa.me/34655311967?text=${mensaje}`,
       "_blank"

@@ -13,14 +13,15 @@ export default function AppShell({
   const pathname = usePathname();
 
   const isAdmin = pathname.startsWith("/admin");
-
+const isLanding =
+  pathname === "/" || pathname.startsWith("/landing");
   return (
     <>
-      {!isAdmin && <Navbar />}
+      {pathname.startsWith("/clientes") && <Navbar />}
 
       {children}
 
-      {!isAdmin && (
+      {pathname.startsWith("/clientes") && (
         <Link
           href="#ia"
           className="
@@ -47,7 +48,6 @@ export default function AppShell({
         </Link>
       )}
 
-      {!isAdmin && <Footer />}
-    </>
+{pathname.startsWith("/clientes") && <Footer />}    </>
   );
 }

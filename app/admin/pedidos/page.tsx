@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  useRef
+} from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function PedidosPage() {
@@ -16,6 +20,13 @@ export default function PedidosPage() {
 
   const [productos, setProductos] =
   useState<any[]>([]);
+
+  const [audioActivo, setAudioActivo] =
+  useState(false);
+  const audioActivoRef =
+  useRef(false);
+  const ignorarSiguienteRealtime =
+  useRef(false);
 
     const cambiarEstado = async (
   id: number,
@@ -52,6 +63,11 @@ export default function PedidosPage() {
   }
 
   
+  ignorarSiguienteRealtime.current = true;
+
+  console.log(
+  "CAMBIO ESTADO"
+);
 
   const { error } =
   await supabase
@@ -74,18 +90,30 @@ export default function PedidosPage() {
 
   } else {
 
-    setPedidos(
-      pedidos.map(
-        (pedido) =>
-          pedido.id === id
-            ? {
-                ...pedido,
-                estado:
-                  nuevoEstado
-              }
-            : pedido
-      )
-    );
+    if (nuevoEstado === "Cobrado") {
+
+  setPedidos(
+    pedidos.filter(
+      (pedido) =>
+        pedido.id !== id
+    )
+  );
+
+} else {
+
+  setPedidos(
+    pedidos.map(
+      (pedido) =>
+        pedido.id === id
+          ? {
+              ...pedido,
+              estado: nuevoEstado
+            }
+          : pedido
+    )
+  );
+
+}
 
   }
 
@@ -248,6 +276,37 @@ const toggleProducto = async (
   },
   async (payload) => {
 
+  if (
+    ignorarSiguienteRealtime.current
+  ) {
+     console.log(
+    "REALTIME IGNORADO"
+  );
+
+    ignorarSiguienteRealtime.current =
+      false;
+
+    return;
+
+  }
+    if (
+  audioActivoRef.current
+) {
+
+    const audio =
+      new Audio(
+        "/sounds/new-order.mp3"
+      );
+
+    console.log("SONIDO REALTIME");
+
+audio.play().catch(
+  console.error
+);
+
+  }
+
+
     console.log(
       "REALTIME RECIBIDO",
       payload
@@ -332,13 +391,78 @@ const pedidosServidos =
 
   return (
 
-    <main className="p-6 w-full">
+    <main className="p-6 w-full bg-[#0f0f0f] min-h-screen text-white">
 
-      <div className="mb-8">
+      <div className="mb-4">
 
-  <h1 className="text-4xl font-bold">
-    🍔 Pedidos activos ({pedidos.length})
+  <div className="flex justify-between items-center mb-4">
+
+  <h1 className="text-xl font-bold">
+    🍽️ Mesas Activas ({pedidos.length})
   </h1>
+
+  <div className="flex gap-2 text-sm font-semibold">
+
+    <div className="bg-yellow-600 px-3 py-1 rounded-lg">
+      🟡 {pedidosPendientes.length}
+    </div>
+
+    <div className="bg-orange-600 px-3 py-1 rounded-lg">
+      🟠 {pedidosPreparando.length}
+    </div>
+
+    <div className="bg-green-600 px-3 py-1 rounded-lg">
+      🟢 {pedidosServidos.length}
+    </div>
+
+    <button
+  onClick={async () => {
+
+    if (!audioActivo) {
+
+      try {
+
+        const audio =
+          new Audio(
+            "/sounds/new-order.mp3"
+          );
+
+        audio.volume = 0;
+
+        await audio.play();
+
+      } catch (error) {
+
+        console.error(error);
+
+      }
+
+    }
+
+   const nuevoEstado =
+  !audioActivo;
+
+setAudioActivo(
+  nuevoEstado
+);
+
+audioActivoRef.current =
+  nuevoEstado;
+
+  }}
+  className="
+    bg-zinc-700
+    px-3
+    py-1
+    rounded-lg
+  "
+>
+  {audioActivo ? "🔔" : "🔇"}
+</button>
+
+  </div>
+
+</div>
 
   <div className="flex gap-3 mt-4">
 
@@ -386,83 +510,38 @@ const pedidosServidos =
 
 </div>
 
-<div className="grid md:grid-cols-3 gap-4 mb-8">
 
-  <div
-    className="
-      bg-yellow-600
-      rounded-2xl
-      p-4
-    "
-  >
-    <p className="text-sm">
-      Pendientes
-    </p>
-
-    <p className="text-3xl font-bold">
-      {pedidosPendientes.length}
-    </p>
-  </div>
-
-  <div
-    className="
-      bg-orange-600
-      rounded-2xl
-      p-4
-    "
-  >
-    <p className="text-sm">
-      Preparando
-    </p>
-
-    <p className="text-3xl font-bold">
-      {pedidosPreparando.length}
-    </p>
-  </div>
-
-  <div
-    className="
-      bg-green-600
-      rounded-2xl
-      p-4
-    "
-  >
-    <p className="text-sm">
-      Servidos
-    </p>
-
-    <p className="text-3xl font-bold">
-      {pedidosServidos.length}
-    </p>
-  </div>
-
-</div>
 
 {vista === "pedidos" && (
-      <div className="grid lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3">
+          <div className="grid md:grid-cols-4 gap-6">
+          <div className="md:col-span-3">
+          <div className="grid md:grid-cols-2 gap-4">
             
 
         {[...pedidos]
-  .sort((a, b) => {
+ .sort((a, b) => {
 
-    const prioridad = {
-      Pendiente: 1,
-      Preparando: 2,
-      Servido: 3
-    };
+  const prioridad = {
+    Pendiente: 1,
+    Preparando: 2,
+    Servido: 3
+  };
 
- 
-    return (
-  prioridad[
-    a.estado as keyof typeof prioridad
-  ] -
-  prioridad[
-    b.estado as keyof typeof prioridad
-  ]
-);
+  const estadoDiff =
+    prioridad[
+      a.estado as keyof typeof prioridad
+    ] -
+    prioridad[
+      b.estado as keyof typeof prioridad
+    ];
 
-  })
+  if (estadoDiff !== 0) {
+    return estadoDiff;
+  }
+
+  return a.mesa - b.mesa;
+
+})
   .map((pedido) => (
 
           <div
@@ -471,15 +550,15 @@ const pedidosServidos =
               bg-zinc-900
               border
               border-zinc-800
-              rounded-3xl
-              p-6
-            "
+              rounded-2xl
+              p-4
+              "
           >
 
-            <div className="flex justify-between mb-4">
+            <div className="flex justify-between mb-2">
 
-              <h2 className="text-2xl font-bold">
-                Mesa {pedido.mesa}
+                <h2 className="text-xl font-bold">
+                  Mesa {pedido.mesa}
                 {pedido.novedad && (
 
   <span
@@ -575,7 +654,7 @@ const pedidosServidos =
 
             </div>
 
-            <div className="mt-4 pt-4 border-t border-zinc-700">
+            <div className="mt-2 pt-2 border-t border-zinc-700">
 
               <p className="font-bold text-[#b9742d]">
                 Total: {Number(
@@ -589,14 +668,17 @@ const pedidosServidos =
 
         ))}
         </div>
+        </div>
         
         <div
   className="
-    bg-zinc-900
-    rounded-3xl
-    p-6
-    h-fit
-  "
+  bg-zinc-900
+  rounded-3xl
+  p-6
+  h-fit
+  sticky
+  top-4
+"
 >
 
   <h2 className="text-2xl font-bold mb-4">
@@ -703,9 +785,21 @@ const pedidosServidos =
         "
       >
 
-        <span>
-          {producto.name}
-        </span>
+        <div>
+
+  <p>
+    {producto.name}
+  </p>
+
+  <p className="text-xs text-gray-400">
+
+    {producto.area === "barra"
+      ? "🍺 Barra"
+      : "🍳 Cocina"}
+
+  </p>
+
+</div>
 
         <button
   onClick={() =>

@@ -225,6 +225,15 @@ const pedidoId =
     "pedido_id"
   );
 
+  console.log("MESA ACTUAL", mesa);
+
+console.log(
+  "PEDIDO ID",
+  localStorage.getItem(
+    "pedido_id"
+  )
+);
+
 if (mesa !== "Sin mesa") {
 
   const cargarEstado =
@@ -272,10 +281,13 @@ console.log("ERROR:", error);
         payload.new.id ===
         Number(pedidoId)
       ) {
-
+console.log("CLIENTE REALTIME", payload);
         setEstadoPedido(
           payload.new.estado
         );
+        setPedidoActual(
+  payload.new
+);
 
       }
 
@@ -870,8 +882,30 @@ console.log("MESA", mesa);
         "pedido_id",
         data.id.toString()
       );
+      // window.location.reload();
       setPedidoActual(data);
 setEstadoPedido(data.estado);
+await supabase
+  .from("order_items")
+  .insert(
+
+    cart.map((item) => ({
+      order_id: data.id,
+      product_id: item.id,
+
+      product_name: item.name,
+      precio: item.price,
+
+      cantidad: 1,
+
+      estado: "Pendiente",
+
+      area: item.area,
+
+      restaurant_id: 1
+    }))
+
+  );
 
     }
 

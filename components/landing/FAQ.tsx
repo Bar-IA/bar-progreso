@@ -66,7 +66,17 @@ export default function FAQ() {
                 onClick={() =>
                   setOpen(open === index ? null : index)
                 }
-                className="w-full flex items-center justify-between p-6 text-left"
+                className="
+  w-full
+  flex
+  items-center
+  justify-between
+  p-6
+  text-left
+  cursor-pointer
+  hover:text-[#C46A2D]
+  transition
+"
               >
                 <span className="font-semibold text-lg">
                   {faq.question}

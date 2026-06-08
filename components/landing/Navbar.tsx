@@ -53,11 +53,13 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
 
         <div className="flex items-center">
-          <img
-            src="/logo-apedirdemesa.png"
-            alt="A Pedir de Mesa"
-            className="h-16 w-auto"
-          />
+          <a href="#top">
+  <img
+    src="/logo-apedirdemesa.png"
+    alt="A Pedir de Mesa"
+    className="h-16 w-auto cursor-pointer"
+  />
+</a>
         </div>
 
         <nav className="hidden md:flex items-center gap-10 font-medium text-sm">

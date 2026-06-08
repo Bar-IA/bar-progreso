@@ -12,6 +12,18 @@ export default function PedidosPage() {
   const [pedidos, setPedidos] =
     useState<any[]>([]);
 
+    const [mesaProductos, setMesaProductos] =
+  useState<number | null>(null);
+
+  const [busquedaProducto, setBusquedaProducto] =
+  useState("");
+
+const [categoriaProducto, setCategoriaProducto] =
+  useState("Todos");
+
+  const [mesaSeleccionada, setMesaSeleccionada] =
+  useState<any>(null);
+
     const [solicitudes, setSolicitudes] =
   useState<any[]>([]);
 
@@ -22,6 +34,13 @@ export default function PedidosPage() {
   useState<any[]>([]);
   const [orderItems, setOrderItems] =
   useState<any[]>([]);
+  const [pedidoAbierto, setPedidoAbierto] =
+  useState<number | null>(null);
+  const [mostrarNuevaMesa, setMostrarNuevaMesa] =
+  useState(false);
+
+const [nuevaMesa, setNuevaMesa] =
+  useState("");
 
   const [audioActivo, setAudioActivo] =
   useState(false);
@@ -493,6 +512,164 @@ const marcarComoVisto = async (
 
 };
 
+
+
+ const añadirProductoMesa = async (
+  producto: any
+) => {
+
+  if (!mesaSeleccionada) return;
+
+  const batchId =
+    Date.now().toString();
+
+  const { error } =
+    await supabase
+      .from("order_items")
+      .insert([
+        {
+          order_id:
+            mesaSeleccionada.id,
+
+          product_id:
+            producto.id,
+
+          product_name:
+            producto.name,
+
+          precio:
+            producto.price,
+
+          cantidad: 1,
+
+          estado:
+            "Pendiente",
+
+          area:
+            producto.area,
+
+          restaurant_id: 1,
+
+          batch_id:
+            batchId,
+
+          vista_camarero:
+            false
+        }
+      ]);
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  const nuevoTotal =
+  Number(
+    mesaSeleccionada.total || 0
+  ) +
+  Number(
+    producto.price || 0
+  );
+
+await supabase
+  .from("orders")
+  .update({
+    total: nuevoTotal
+  })
+  .eq(
+    "id",
+    mesaSeleccionada.id
+  );
+
+setPedidos(
+  pedidos.map(
+    (pedido) =>
+      pedido.id ===
+      mesaSeleccionada.id
+        ? {
+            ...pedido,
+            total: nuevoTotal
+          }
+        : pedido
+  )
+);
+
+setMesaSeleccionada(
+  null
+);
+
+setMesaProductos(
+  null
+);
+
+setBusquedaProducto(
+  ""
+);
+
+  alert(
+    `${producto.name} añadido`
+  );
+
+};
+const crearMesa = async () => {
+
+  if (!nuevaMesa) return;
+
+  const { data: mesaExistente } =
+    await supabase
+      .from("orders")
+      .select("id")
+      .eq("mesa", nuevaMesa)
+      .eq("cuenta_abierta", true)
+      .maybeSingle();
+
+  if (mesaExistente) {
+
+    alert(
+      `La mesa ${nuevaMesa} ya existe`
+    );
+
+    return;
+
+  }
+
+  const { data, error } =
+    await supabase
+      .from("orders")
+      .insert([
+        {
+          restaurant_id: 1,
+          mesa: nuevaMesa,
+          pedido: [],
+          total: 0,
+          estado: "Pendiente",
+          cuenta_abierta: true,
+          novedad: false
+        }
+      ])
+      .select();
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  setPedidos([
+    ...(data || []),
+    ...pedidos
+  ]);
+
+  setNuevaMesa("");
+  setMostrarNuevaMesa(false);
+
+};
+
   return (
 
     <main className="p-6 w-full bg-[#0f0f0f] min-h-screen text-white">
@@ -504,6 +681,76 @@ const marcarComoVisto = async (
   <h1 className="text-xl font-bold">
     🍽️ Mesas Activas ({pedidos.length})
   </h1>
+
+  <div className="mt-3">
+  <button
+    onClick={() =>
+      setMostrarNuevaMesa(
+        !mostrarNuevaMesa
+      )
+    }
+    className="
+      bg-green-600
+      hover:bg-green-700
+      px-4
+      py-2
+      rounded-xl
+      font-semibold
+    "
+  >
+    ➕ Nueva mesa
+  </button>
+
+  {
+  mostrarNuevaMesa && (
+
+    <div
+      className="
+        mt-3
+        bg-zinc-800
+        p-4
+        rounded-xl
+      "
+    >
+
+      <input
+        type="number"
+        placeholder="Número de mesa"
+        value={nuevaMesa}
+        onChange={(e) =>
+          setNuevaMesa(
+            e.target.value
+          )
+        }
+        className="
+          w-full
+          p-2
+          rounded-lg
+          bg-zinc-900
+          border
+          border-zinc-700
+        "
+      />
+
+      <button
+  onClick={crearMesa}
+  className="
+    mt-3
+    w-full
+    bg-green-600
+    py-2
+    rounded-lg
+    font-semibold
+  "
+>
+  Crear mesa
+</button>
+
+    </div>
+
+  )
+}
+</div>
 
   <div className="flex gap-2 text-sm font-semibold">
 
@@ -835,6 +1082,87 @@ audioActivoRef.current =
 
             </div>
 
+            <button
+  onClick={() =>
+    setPedidoAbierto(
+      pedidoAbierto === pedido.id
+        ? null
+        : pedido.id
+    )
+  }
+  className="
+    mt-3
+    text-sm
+    text-blue-400
+    hover:text-blue-300
+    font-semibold
+  "
+>
+  {pedidoAbierto === pedido.id
+    ? "▲ Ocultar pedido"
+    : "▼ Ver pedido"}
+</button>
+<button
+  onClick={() => {
+
+    setBusquedaProducto("");
+
+  setMesaSeleccionada(
+    pedido
+  );
+
+  setMesaProductos(
+    pedido.id
+  );
+
+}}
+  className="
+    mt-2
+    text-sm
+    text-green-400
+    hover:text-green-300
+    font-semibold
+    block
+  "
+>
+  {mesaProductos === pedido.id
+    ? "➖ Ocultar productos"
+    : "➕ Añadir producto"}
+</button>
+
+{
+  mesaProductos === pedido.id && (
+    <></>
+  )
+}
+
+
+
+{
+  pedidoAbierto === pedido.id && (
+
+    <div className="mt-3">
+
+      {
+        orderItems
+          .filter(
+            (item) =>
+              item.order_id === pedido.id
+          )
+          .map((item) => (
+
+            <p key={item.id}>
+              • {item.product_name}
+            </p>
+
+          ))
+      }
+
+    </div>
+
+  )
+}
+
           </div>
 
         ))}
@@ -1009,6 +1337,146 @@ audioActivoRef.current =
   </div>
 
 )}
+{
+  mesaSeleccionada && (
+
+    <div
+      className="
+        fixed
+        inset-0
+        bg-black/70
+        flex
+        items-center
+        justify-center
+        z-50
+      "
+    >
+
+      <div
+        className="
+          bg-zinc-900
+          rounded-2xl
+          p-6
+          w-full
+          max-w-xl
+        "
+      >
+
+        <div
+          className="
+            flex
+            justify-between
+            items-center
+            mb-4
+          "
+        >
+
+          <h2 className="text-xl font-bold">
+            ➕ Añadir producto
+            a Mesa {
+              mesaSeleccionada.mesa
+            }
+          </h2>
+
+          <button
+            onClick={() => {
+
+              setMesaSeleccionada(
+                null
+              );
+
+              setMesaProductos(
+                null
+              );
+
+              setBusquedaProducto(
+      ""
+    );
+
+            }}
+            className="
+              text-red-500
+              font-bold
+            "
+          >
+            ✕
+          </button>
+
+        </div>
+
+        <input
+  type="text"
+  placeholder="🔍 Buscar producto..."
+  value={busquedaProducto}
+  onChange={(e) =>
+    setBusquedaProducto(
+      e.target.value
+    )
+  }
+  className="
+    w-full
+    mb-4
+    p-3
+    rounded-xl
+    bg-zinc-800
+    border
+    border-zinc-700
+  "
+/>
+<div
+  className="
+    max-h-96
+    overflow-y-auto
+    space-y-2
+  "
+>
+
+  {
+    productos
+      .filter(
+        (producto) =>
+          producto.name
+            .toLowerCase()
+            .includes(
+              busquedaProducto.toLowerCase()
+            )
+      )
+      .map(
+        (producto) => (
+
+          <button
+            key={producto.id}
+            onClick={() =>
+  añadirProductoMesa(
+    producto
+  )
+}
+            
+            
+            className="
+              w-full
+              text-left
+              p-3
+              rounded-xl
+              bg-zinc-800
+              hover:bg-zinc-700
+            "
+          >
+            {producto.name}
+          </button>
+
+        )
+      )
+  }
+
+</div>
+
+      </div>
+
+    </div>
+
+  )
+}
     </main>
 
   );

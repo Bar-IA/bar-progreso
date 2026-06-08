@@ -36,7 +36,7 @@ export default function Benefits() {
 ];
 
   return (
-    <section className="bg-[#10251D] py-24 text-white">
+    <section id="beneficios" className="bg-[#10251D] py-24 text-white">
 
       <div className="max-w-7xl mx-auto px-6">
 

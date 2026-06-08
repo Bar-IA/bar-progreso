@@ -44,7 +44,7 @@ export default function HowItWorks() {
   ];
 
   return (
-    <section className="bg-[#F8F5F0] py-24">
+    <section id="comofunciona" className="bg-[#F8F5F0] py-24">
 
       <div className="max-w-7xl mx-auto px-6">
 

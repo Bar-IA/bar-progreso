@@ -11,7 +11,7 @@ import {
 
 export default function Future() {
   return (
-    <section className="bg-white py-24">
+    <section id="future" className="bg-white py-24">
 
       <div className="max-w-7xl mx-auto px-6">
 

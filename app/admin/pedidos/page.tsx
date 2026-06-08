@@ -20,6 +20,8 @@ export default function PedidosPage() {
 
   const [productos, setProductos] =
   useState<any[]>([]);
+  const [orderItems, setOrderItems] =
+  useState<any[]>([]);
 
   const [audioActivo, setAudioActivo] =
   useState(false);
@@ -248,6 +250,8 @@ const toggleProducto = async (
 
     const loadProductos = async () => {
 
+      
+
   const { data } =
     await supabase
       .from("products")
@@ -258,10 +262,47 @@ const toggleProducto = async (
   setProductos(data || []);
 
 };
+const loadOrderItems = async () => {
+
+  const { data, error } =
+    await supabase
+      .from("order_items")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+  if (error) {
+
+    console.error(error);
+
+  } else {
+
+    setOrderItems(
+      data || []
+    );
+
+    console.log(
+  "ORDER ITEMS",
+  data
+);
+
+  }
+
+};
 
     loadPedidos();
     loadSolicitudes();
     loadProductos();
+    loadOrderItems();
+
+    console.log(
+  "ORDER ITEMS",
+  orderItems
+);
 
     
 
@@ -326,6 +367,15 @@ audio.play().catch(
         );
 
     setPedidos(data || []);
+    
+    const { data: items } =
+  await supabase
+    .from("order_items")
+    .select("*");
+
+setOrderItems(
+  items || []
+);
 
   }
 )
@@ -388,6 +438,60 @@ const pedidosServidos =
   pedidos.filter(
     (p) => p.estado === "Servido"
   );
+
+  useEffect(() => {
+
+  console.log(
+    "ORDER ITEMS",
+    orderItems
+  );
+
+}, [orderItems]);
+
+const marcarComoVisto = async (
+  orderId: number
+) => {
+
+  const { error } =
+    await supabase
+      .from("order_items")
+      .update({
+        vista_camarero: true
+      })
+      
+      .eq("order_id", orderId)
+      .eq(
+        "vista_camarero",
+        false
+      );
+      await supabase
+  .from("orders")
+  .update({
+    novedad: false
+  })
+  .eq("id", orderId);
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  setOrderItems(
+    orderItems.map(
+      (item) =>
+        item.order_id === orderId
+          ? {
+              ...item,
+              vista_camarero: true
+            }
+          : item
+    )
+  );
+
+};
 
   return (
 
@@ -557,8 +661,30 @@ audioActivoRef.current =
 
             <div className="flex justify-between mb-2">
 
+
                 <h2 className="text-xl font-bold">
-                  Mesa {pedido.mesa}
+  Mesa {pedido.mesa}
+
+  <span
+  className="
+    bg-red-600
+    text-white
+    text-xs
+    px-2
+    py-1
+    rounded-full
+    ml-2
+  "
+>
+  +
+  {
+    orderItems.filter(
+      (item) =>
+        item.order_id === pedido.id &&
+        item.vista_camarero === false
+    ).length
+  }
+</span>
                 {pedido.novedad && (
 
   <span
@@ -578,6 +704,10 @@ audioActivoRef.current =
 
 )}
               </h2>
+
+              
+
+
 
               <button
   onClick={() =>
@@ -612,48 +742,89 @@ audioActivoRef.current =
 
             </div>
 
-            <div className="space-y-2">
 
-              {
-  Object.values(
 
-    pedido.pedido.reduce(
-      (acc: any, item: any) => {
+            
 
-        if (!acc[item.name]) {
+            
 
-          acc[item.name] = {
-            ...item,
-            cantidad: 1
-          };
+  
 
-        } else {
 
-          acc[item.name].cantidad++;
+{
+  orderItems.filter(
+    (item) =>
+      item.order_id === pedido.id &&
+      item.vista_camarero === false
+  ).length > 0 && (
 
-        }
+    <div
+      className="
+        mt-4
+        border-t
+        border-red-600
+        pt-3
+      "
+    >
 
-        return acc;
+      <div
+        className="
+          flex
+          justify-between
+          items-center
+          mb-2
+        "
+      >
 
-      },
-      {}
-    )
+        <p
+          className="
+            text-red-500
+            font-bold
+          "
+        >
+          🆕 NUEVOS
+        </p>
 
-  ).map(
-    (item: any, index: number) => (
+        <button
+          onClick={() =>
+            marcarComoVisto(
+              pedido.id
+            )
+          }
+          className="
+            bg-green-600
+            hover:bg-green-700
+            px-2
+            py-1
+            rounded
+            text-xs
+          "
+        >
+          ✓ Visto
+        </button>
 
-      <p key={index}>
-        • {item.name}
-        {item.cantidad > 1 &&
-          ` x${item.cantidad}`}
-      </p>
+      </div>
 
-    )
+      {
+        orderItems
+          .filter(
+            (item) =>
+              item.order_id === pedido.id &&
+              item.vista_camarero === false
+          )
+          .map((item) => (
+
+            <p key={item.id}>
+              • {item.product_name}
+            </p>
+
+          ))
+      }
+
+    </div>
+
   )
 }
-
-            </div>
-
             <div className="mt-2 pt-2 border-t border-zinc-700">
 
               <p className="font-bold text-[#b9742d]">

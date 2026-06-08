@@ -853,6 +853,7 @@ Enviado desde Bar IA`
       console.log("CUENTA ABIERTA", cuentaAbierta);
 console.log("MESA", mesa);
 
+
   if (!cuentaAbierta) {
 
     const { data, error } =
@@ -877,14 +878,21 @@ console.log("MESA", mesa);
       console.error(error);
 
     } else {
+      console.log("ENTRO EN ELSE");
 
       localStorage.setItem(
         "pedido_id",
         data.id.toString()
       );
+
+     
       // window.location.reload();
       setPedidoActual(data);
 setEstadoPedido(data.estado);
+
+const batchId =
+  Date.now().toString();
+
 await supabase
   .from("order_items")
   .insert(
@@ -902,7 +910,8 @@ await supabase
 
       area: item.area,
 
-      restaurant_id: 1
+      restaurant_id: 1, 
+      batch_id: batchId
     }))
 
   );
@@ -910,6 +919,7 @@ await supabase
     }
 
   } else {
+    
 
     const pedidoActualizado = [
       ...cuentaAbierta.pedido,
@@ -950,6 +960,45 @@ await supabase
   pedido: pedidoActualizado,
   total: nuevoTotal
 });
+
+const batchId =
+  Date.now().toString();
+const { data: itemsData, error: itemsError } =
+  await supabase
+    .from("order_items")
+    .insert(
+
+      cart.map((item) => ({
+        order_id: cuentaAbierta.id,
+
+        product_id: item.id,
+
+        product_name: item.name,
+
+        precio: item.price,
+
+        cantidad: 1,
+
+        estado: "Pendiente",
+
+        area: item.area,
+
+        restaurant_id: 1,
+        batch_id: batchId
+      }))
+
+    )
+    .select();
+
+console.log(
+  "ITEMS DATA",
+  itemsData
+);
+
+console.log(
+  "ITEMS ERROR",
+  itemsError
+);
 
     }
 

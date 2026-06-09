@@ -24,6 +24,16 @@ const [categoriaProducto, setCategoriaProducto] =
   const [mesaSeleccionada, setMesaSeleccionada] =
   useState<any>(null);
 
+  const [mesaEditar, setMesaEditar] =
+  useState<any>(null);
+
+const [nuevoNumeroMesa, setNuevoNumeroMesa] =
+  useState("");
+  const [productoSeleccionado, setProductoSeleccionado] =
+  useState<any>(null);
+  const [cantidadProducto, setCantidadProducto] =
+  useState(1);
+
     const [solicitudes, setSolicitudes] =
   useState<any[]>([]);
 
@@ -33,6 +43,9 @@ const [categoriaProducto, setCategoriaProducto] =
   const [productos, setProductos] =
   useState<any[]>([]);
   const [orderItems, setOrderItems] =
+  useState<any[]>([]);
+
+  const [listos, setListos] =
   useState<any[]>([]);
   const [pedidoAbierto, setPedidoAbierto] =
   useState<number | null>(null);
@@ -333,6 +346,7 @@ const loadOrderItems = async () => {
     event: "*",
     schema: "public",
     table: "orders"
+
   },
   async (payload) => {
 
@@ -433,6 +447,79 @@ setOrderItems(
 
   }
 )
+
+.on(
+  
+  "postgres_changes",
+  {
+    event: "*",
+    schema: "public",
+    table: "order_items"
+  },
+  async () => {
+    console.log(
+  "🔥 ORDER_ITEMS EVENT"
+);
+
+    const { data } =
+      await supabase
+        .from("order_items")
+        .select("*")
+        .order(
+          "created_at",
+          {
+            ascending: false
+          }
+        );
+
+    setOrderItems(
+  data || []
+);
+
+console.log(
+  "LISTOS",
+  (data || []).filter(
+    (item) =>
+      item.estado === "Listo"
+  )
+);
+
+console.log(
+  "ESTADOS",
+  (data || []).map(
+    (item) => item.estado
+  )
+);
+
+  }
+)
+
+.on(
+  "postgres_changes",
+  {
+    event: "*",
+    schema: "public",
+    table: "products"
+  },
+  async () => {
+
+    const { data } =
+      await supabase
+        .from("products")
+        .select("*")
+        .eq(
+          "restaurant_id",
+          1
+        )
+        .order("name");
+
+    setProductos(
+      data || []
+    );
+
+  }
+)
+
   .subscribe();
 
 return () => {
@@ -457,6 +544,18 @@ const pedidosServidos =
   pedidos.filter(
     (p) => p.estado === "Servido"
   );
+
+  const tieneListo = (
+  pedidoId: number
+) => {
+
+  return orderItems.some(
+    (item) =>
+      item.order_id === pedidoId &&
+      item.estado === "Listo"
+  );
+
+};
 
   useEffect(() => {
 
@@ -512,7 +611,57 @@ const marcarComoVisto = async (
 
 };
 
+const marcarEntregado = async (
+  orderId: number,
+  area: string
+) => {
 
+  const { error } =
+    await supabase
+      .from("order_items")
+      .update({
+        estado: "Entregado"
+      })
+      .eq(
+        "order_id",
+        orderId
+      )
+      .eq(
+        "area",
+        area
+      )
+      .eq(
+        "estado",
+        "Listo"
+      );
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  setOrderItems(
+    orderItems.map(
+      (item) =>
+
+        item.order_id === orderId &&
+        item.area === area &&
+        item.estado === "Listo"
+
+          ? {
+              ...item,
+              estado:
+                "Entregado"
+            }
+
+          : item
+    )
+  );
+
+};
 
  const añadirProductoMesa = async (
   producto: any
@@ -540,7 +689,7 @@ const marcarComoVisto = async (
           precio:
             producto.price,
 
-          cantidad: 1,
+          cantidad: cantidadProducto,
 
           estado:
             "Pendiente",
@@ -570,8 +719,11 @@ const marcarComoVisto = async (
   Number(
     mesaSeleccionada.total || 0
   ) +
-  Number(
-    producto.price || 0
+  (
+    Number(
+      producto.price || 0
+    ) *
+    cantidadProducto
   );
 
 await supabase
@@ -609,8 +761,154 @@ setBusquedaProducto(
   ""
 );
 
+setProductoSeleccionado(
+  null
+);
+
+setCantidadProducto(
+  1
+);
+
   alert(
     `${producto.name} añadido`
+  );
+
+};
+const eliminarProductoMesa = async (
+  pedidoId: number,
+  nombreProducto: string
+) => {
+
+  const item =
+    orderItems.find(
+      (i) =>
+        i.order_id === pedidoId &&
+        i.product_name === nombreProducto
+    );
+
+  if (!item) return;
+
+  if (
+    (item.cantidad || 1) > 1
+  ) {
+
+    await supabase
+      .from("order_items")
+      .update({
+        cantidad:
+          item.cantidad - 1
+      })
+      .eq("id", item.id);
+
+  } else {
+
+    await supabase
+      .from("order_items")
+      .delete()
+      .eq("id", item.id);
+
+  }
+  const pedido =
+  pedidos.find(
+    (p) => p.id === pedidoId
+  );
+
+if (!pedido) return;
+
+const nuevoTotal =
+  Math.max(
+    0,
+    Number(pedido.total) -
+      Number(item.precio)
+  );
+
+await supabase
+  .from("orders")
+  .update({
+    total: nuevoTotal
+  })
+  .eq("id", pedidoId);
+
+setPedidos(
+  pedidos.map((p) =>
+    p.id === pedidoId
+      ? {
+          ...p,
+          total: nuevoTotal
+        }
+      : p
+  )
+);
+
+};
+const cambiarMesa = async () => {
+
+  if (!mesaEditar) return;
+
+  const { data: mesaExistente } =
+    await supabase
+      .from("orders")
+      .select("id")
+      .eq(
+        "mesa",
+        nuevoNumeroMesa
+      )
+      .eq(
+        "cuenta_abierta",
+        true
+      )
+      .neq(
+        "id",
+        mesaEditar.id
+      )
+      .maybeSingle();
+
+  if (mesaExistente) {
+
+    alert(
+      `La mesa ${nuevoNumeroMesa} ya está ocupada`
+    );
+
+    return;
+
+  }
+
+  const { error } =
+    await supabase
+      .from("orders")
+      .update({
+        mesa:
+          nuevoNumeroMesa
+      })
+      .eq(
+        "id",
+        mesaEditar.id
+      );
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  setPedidos(
+    pedidos.map(
+      (pedido) =>
+        pedido.id ===
+        mesaEditar.id
+          ? {
+              ...pedido,
+              mesa:
+                nuevoNumeroMesa
+            }
+          : pedido
+    )
+  );
+
+  setMesaEditar(
+    null
   );
 
 };
@@ -676,7 +974,70 @@ const crearMesa = async () => {
 
       <div className="mb-4">
 
+
+{
+  productos.filter(
+    p => !p.active
+  ).length > 0 && (
+
+    <div
+      className="
+        w-full
+        bg-red-900/30
+        border-b
+        border-red-600
+        px-4
+        py-2
+        mb-4
+      "
+    >
+
+      <div
+        className="
+          flex
+          items-center
+          gap-2
+          text-sm
+        "
+      >
+
+        <span
+          className="
+            text-red-400
+            font-bold
+            whitespace-nowrap
+          "
+        >
+          🚫 AGOTADOS:
+        </span>
+
+        <div
+          className="
+            overflow-hidden
+            text-red-200
+          "
+        >
+          {
+            productos
+              .filter(
+                p => !p.active
+              )
+              .map(
+                p => p.name
+              )
+              .join(" • ")
+          }
+        </div>
+
+      </div>
+
+    </div>
+
+  )
+}
   <div className="flex justify-between items-center mb-4">
+
+
 
   <h1 className="text-xl font-bold">
     🍽️ Mesas Activas ({pedidos.length})
@@ -866,11 +1227,26 @@ audioActivoRef.current =
 {vista === "pedidos" && (
           <div className="grid md:grid-cols-4 gap-6">
           <div className="md:col-span-3">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
             
 
         {[...pedidos]
+        
  .sort((a, b) => {
+
+  if (
+  tieneListo(a.id) &&
+  !tieneListo(b.id)
+) {
+  return -1;
+}
+
+if (
+  !tieneListo(a.id) &&
+  tieneListo(b.id)
+) {
+  return 1;
+}
 
   const prioridad = {
     Pendiente: 1,
@@ -896,42 +1272,61 @@ audioActivoRef.current =
   .map((pedido) => (
 
           <div
-            key={pedido.id}
-            className="
-              bg-zinc-900
-              border
-              border-zinc-800
-              rounded-2xl
-              p-4
-              "
-          >
+  key={pedido.id}
+  className={`
+    rounded-xl
+    p-2
+    border
+
+    ${
+      orderItems.some(
+        (item) =>
+          item.order_id === pedido.id &&
+          item.estado === "Listo"
+      )
+        ? "bg-green-900 border-green-500"
+
+        : "bg-zinc-900 border-zinc-800"
+    }
+  `}
+>
 
             <div className="flex justify-between mb-2">
 
 
-                <h2 className="text-xl font-bold">
+                <h2 className="text-base font-bold">
   Mesa {pedido.mesa}
 
-  <span
-  className="
-    bg-red-600
-    text-white
-    text-xs
-    px-2
-    py-1
-    rounded-full
-    ml-2
-  "
->
-  +
-  {
-    orderItems.filter(
-      (item) =>
-        item.order_id === pedido.id &&
-        item.vista_camarero === false
-    ).length
-  }
-</span>
+ {
+  orderItems.filter(
+    (item) =>
+      item.order_id === pedido.id &&
+      item.vista_camarero === false
+  ).length > 0 && (
+
+    <span
+      className="
+        bg-red-600
+        text-white
+        text-xs
+        px-2
+        py-1
+        rounded-full
+        ml-2
+      "
+    >
+      +
+      {
+        orderItems.filter(
+          (item) =>
+            item.order_id === pedido.id &&
+            item.vista_camarero === false
+        ).length
+      }
+    </span>
+
+  )
+}
                 {pedido.novedad && (
 
   <span
@@ -952,9 +1347,77 @@ audioActivoRef.current =
 )}
               </h2>
 
+              <div className="mb-2 space-y-1">
+
+  {
+    orderItems.some(
+      (item) =>
+        item.order_id === pedido.id &&
+        item.estado === "Listo" &&
+        item.area === "cocina"
+    ) && (
+
+      <button
+  onClick={() =>
+    marcarEntregado(
+      pedido.id,
+      "cocina"
+    )
+  }
+  className="
+    w-full
+    bg-orange-600
+    text-white
+    text-center
+    text-xs
+    font-bold
+    py-1
+    rounded-lg
+  "
+>
+  🍔 COMIDA LISTA
+</button>
+
+    )
+  }
+
+  {
+    orderItems.some(
+      (item) =>
+        item.order_id === pedido.id &&
+        item.estado === "Listo" &&
+        item.area === "barra"
+    ) && (
+
+      <button
+  onClick={() =>
+    marcarEntregado(
+      pedido.id,
+      "barra"
+    )
+  }
+  className="
+    w-full
+    bg-blue-600
+    text-white
+    text-center
+    text-xs
+    font-bold
+    py-1
+    rounded-lg
+  "
+>
+  🍺 BEBIDA LISTA
+</button>
+
+    )
+  }
+
+</div>
+
               
 
-
+{/*
 
               <button
   onClick={() =>
@@ -986,6 +1449,7 @@ audioActivoRef.current =
 >
   {pedido.estado}
 </button>
+*/}
 
             </div>
 
@@ -1062,8 +1526,14 @@ audioActivoRef.current =
           .map((item) => (
 
             <p key={item.id}>
-              • {item.product_name}
-            </p>
+  • {item.product_name}
+
+  {
+    item.cantidad > 1
+      ? ` x${item.cantidad}`
+      : ""
+  }
+</p>
 
           ))
       }
@@ -1074,7 +1544,7 @@ audioActivoRef.current =
 }
             <div className="mt-2 pt-2 border-t border-zinc-700">
 
-              <p className="font-bold text-[#b9742d]">
+              <p className="text-sm font-bold text-[#b9742d]">
                 Total: {Number(
                   pedido.total
                 ).toFixed(2)}€
@@ -1082,7 +1552,17 @@ audioActivoRef.current =
 
             </div>
 
-            <button
+            
+
+<div
+  className="
+    flex
+    gap-2
+    mt-2
+  "
+>
+
+  <button
   onClick={() =>
     setPedidoAbierto(
       pedidoAbierto === pedido.id
@@ -1091,16 +1571,19 @@ audioActivoRef.current =
     )
   }
   className="
-    mt-3
-    text-sm
-    text-blue-400
-    hover:text-blue-300
-    font-semibold
-  "
+  bg-zinc-800
+  hover:bg-zinc-700
+  rounded-lg
+  w-8
+  h-8
+  flex
+  items-center
+  justify-center
+"
 >
   {pedidoAbierto === pedido.id
-    ? "▲ Ocultar pedido"
-    : "▼ Ver pedido"}
+  ? "📋"
+  : "📋"}
 </button>
 <button
   onClick={() => {
@@ -1117,18 +1600,49 @@ audioActivoRef.current =
 
 }}
   className="
-    mt-2
-    text-sm
-    text-green-400
-    hover:text-green-300
-    font-semibold
-    block
-  "
+  bg-zinc-800
+  hover:bg-zinc-700
+  rounded-lg
+  w-8
+  h-8
+  flex
+  items-center
+  justify-center
+"
 >
+
+  
   {mesaProductos === pedido.id
     ? "➖ Ocultar productos"
-    : "➕ Añadir producto"}
+    : "➕"}
 </button>
+
+<button
+  onClick={() => {
+
+    setMesaEditar(
+      pedido
+    );
+
+    setNuevoNumeroMesa(
+      pedido.mesa
+    );
+
+  }}
+  className="
+  bg-zinc-800
+  hover:bg-zinc-700
+  rounded-lg
+  w-8
+  h-8
+  flex
+  items-center
+  justify-center
+"
+>
+  📝
+</button>
+</div>
 
 {
   mesaProductos === pedido.id && (
@@ -1144,20 +1658,92 @@ audioActivoRef.current =
     <div className="mt-3">
 
       {
-        orderItems
-          .filter(
-            (item) =>
-              item.order_id === pedido.id
-          )
-          .map((item) => (
+  Object.values(
 
-            <p key={item.id}>
-              • {item.product_name}
-            </p>
+    orderItems
+      .filter(
+        (item) =>
+          item.order_id === pedido.id
+      )
+      .reduce(
+        (acc: any, item: any) => {
 
-          ))
-      }
+          if (
+            !acc[item.product_name]
+          ) {
 
+            acc[item.product_name] = {
+              nombre:
+                item.product_name,
+
+              cantidad:
+                item.cantidad || 1
+            };
+
+          } else {
+
+            acc[
+              item.product_name
+            ].cantidad +=
+              item.cantidad || 1;
+
+          }
+
+          return acc;
+
+        },
+        {}
+      )
+
+  ).map((producto: any) => (
+
+    <div
+  key={producto.nombre}
+  className="
+    flex
+    justify-between
+    items-center
+    py-1
+  "
+>
+
+  <p
+  className="
+    text-xs
+    truncate
+    flex-1
+  "
+>
+  {producto.nombre}
+
+  {
+    producto.cantidad > 1
+      ? ` x${producto.cantidad}`
+      : ""
+  }
+</p>
+
+  <button
+    onClick={() =>
+      eliminarProductoMesa(
+        pedido.id,
+        producto.nombre
+      )
+    }
+    className="
+      text-red-500
+      hover:text-red-400
+      font-bold
+      px-2
+    "
+  >
+    🗑️
+  </button>
+
+</div>
+
+  ))
+}
     </div>
 
   )
@@ -1371,7 +1957,7 @@ audioActivoRef.current =
           "
         >
 
-          <h2 className="text-xl font-bold">
+          <h2 className="text-base font-bold">
             ➕ Añadir producto
             a Mesa {
               mesaSeleccionada.mesa
@@ -1431,6 +2017,8 @@ audioActivoRef.current =
   "
 >
 
+
+
   {
     productos
       .filter(
@@ -1446,11 +2034,18 @@ audioActivoRef.current =
 
           <button
             key={producto.id}
-            onClick={() =>
-  añadirProductoMesa(
+           onClick={() => {
+
+  setProductoSeleccionado(
     producto
-  )
-}
+  );
+
+  setCantidadProducto(
+    1
+  );
+
+}}
+
             
             
             className="
@@ -1468,8 +2063,192 @@ audioActivoRef.current =
         )
       )
   }
+</div>
+
+  {
+  productoSeleccionado && (
+
+    <div
+      className="
+        mt-4
+        border-t
+        border-zinc-700
+        pt-4
+      "
+    >
+
+      <p className="font-bold mb-3">
+        {productoSeleccionado.name}
+      </p>
+
+      <div
+        className="
+          flex
+          items-center
+          gap-3
+        "
+      >
+
+        <button
+          onClick={() =>
+            setCantidadProducto(
+              Math.max(
+                1,
+                cantidadProducto - 1
+              )
+            )
+          }
+          className="
+            bg-zinc-700
+            px-3
+            py-2
+            rounded-lg
+          "
+        >
+          -
+        </button>
+
+        <span
+          className="
+            text-xl
+            font-bold
+          "
+        >
+          {cantidadProducto}
+        </span>
+
+        <button
+          onClick={() =>
+            setCantidadProducto(
+              cantidadProducto + 1
+            )
+          }
+          className="
+            bg-zinc-700
+            px-3
+            py-2
+            rounded-lg
+          "
+        >
+          +
+        </button>
+
+      </div>
+
+      <button
+  onClick={() =>
+    añadirProductoMesa(
+      productoSeleccionado
+    )
+  }
+  className="
+    mt-4
+    w-full
+    bg-green-600
+    hover:bg-green-700
+    py-3
+    rounded-xl
+    font-semibold
+  "
+>
+  Añadir a la mesa
+</button>
+
+    </div>
+
+  )
+}
 
 </div>
+
+      </div>
+
+  
+
+  )
+}
+
+{
+  mesaEditar && (
+
+    <div
+      className="
+        fixed
+        inset-0
+        bg-black/70
+        flex
+        items-center
+        justify-center
+        z-50
+      "
+    >
+
+      <div
+        className="
+          bg-zinc-900
+          rounded-2xl
+          p-6
+          w-full
+          max-w-md
+        "
+      >
+
+        <h2
+          className="
+            text-xl
+            font-bold
+            mb-4
+          "
+        >
+          📝 Cambiar mesa
+        </h2>
+
+        <input
+          type="number"
+          value={nuevoNumeroMesa}
+          onChange={(e) =>
+            setNuevoNumeroMesa(
+              e.target.value
+            )
+          }
+          className="
+            w-full
+            p-3
+            rounded-xl
+            bg-zinc-800
+            border
+            border-zinc-700
+          "
+        />
+<button
+  onClick={cambiarMesa}
+  className="
+    w-full
+    bg-green-600
+    hover:bg-green-700
+    py-3
+    rounded-xl
+    font-semibold
+  "
+>
+  Guardar cambios
+</button>
+        <button
+          onClick={() =>
+            setMesaEditar(
+              null
+            )
+          }
+          className="
+            mt-4
+            w-full
+            bg-red-600
+            py-3
+            rounded-xl
+          "
+        >
+          Cancelar
+        </button>
 
       </div>
 

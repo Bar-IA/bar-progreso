@@ -8,7 +8,13 @@ export default function CocinaPage() {
   const [items, setItems] =
     useState<any[]>([]);
 
+    const [vista, setVista] =
+  useState("cocina");
+
     const [orders, setOrders] =
+  useState<any[]>([]);
+
+  const [productos, setProductos] =
   useState<any[]>([]);
 
   const [now, setNow] =
@@ -23,6 +29,7 @@ export default function CocinaPage() {
           .from("order_items")
           .select("*")
           .eq("area", "cocina")
+          .neq("estado", "Entregado")
           .order(
             "created_at",
             {
@@ -58,12 +65,115 @@ export default function CocinaPage() {
   } else {
 
     setOrders(data || []);
+    console.log("ORDERS", data);
 
   }
 
 };
 
+const loadProductos = async () => {
+
+  const { data, error } =
+    await supabase
+      .from("products")
+      .select("*")
+      .eq("area", "cocina")
+      .order("name");
+
+  if (error) {
+
+    console.error(error);
+
+  } else {
+
+    setProductos(
+      data || []
+    );
+
+  }
+
+};
 loadOrders();
+loadProductos();
+
+
+const ordersChannel = supabase
+  .channel("cocina-orders")
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "orders"
+    },
+    async () => {
+
+      const { data } =
+        await supabase
+          .from("orders")
+          .select("*");
+
+      setOrders(
+        data || []
+      );
+
+    }
+  )
+  .subscribe();
+const channel = supabase
+  .channel("cocina-realtime")
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "order_items"
+    },
+    async () => {
+
+      const { data } =
+        await supabase
+          .from("order_items")
+          .select("*")
+          .eq("area", "cocina")
+          .neq(
+            "estado",
+            "Entregado"
+          )
+          .order(
+            "created_at",
+            {
+              ascending: false
+            }
+          );
+
+      setItems(
+        data || []
+      );
+
+      const { data: ordersData } =
+  await supabase
+    .from("orders")
+    .select("*");
+
+setOrders(
+  ordersData || []
+);
+
+    }
+  )
+  .subscribe();
+
+  return () => {
+
+  supabase.removeChannel(
+    channel
+  );
+
+  
+
+
+};
 
   }, []);
 
@@ -130,6 +240,8 @@ loadOrders();
 
     console.error(error);
 
+
+    
     return;
 
   }
@@ -148,6 +260,41 @@ loadOrders();
 
 };
 
+const toggleProducto = async (
+  id: number,
+  active: boolean
+) => {
+
+  const { error } =
+    await supabase
+      .from("products")
+      .update({
+        active: !active
+      })
+      .eq("id", id);
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  setProductos(
+    productos.map(
+      (p) =>
+        p.id === id
+          ? {
+              ...p,
+              active: !active
+            }
+          : p
+    )
+  );
+
+};
+
   return (
 
     <main className="p-6 bg-[#0f0f0f] min-h-screen text-white">
@@ -156,20 +303,70 @@ loadOrders();
         👨‍🍳 Cocina
       </h1>
 
+      <div className="flex gap-3 mb-6">
+
+  <button
+    onClick={() =>
+      setVista("cocina")
+    }
+    className={`
+      px-4
+      py-2
+      rounded-xl
+      font-semibold
+
+      ${
+        vista === "cocina"
+          ? "bg-[#b9742d]"
+          : "bg-zinc-800"
+      }
+    `}
+  >
+    👨‍🍳 Cocina
+  </button>
+
+  <button
+    onClick={() =>
+      setVista("stock")
+    }
+    className={`
+      px-4
+      py-2
+      rounded-xl
+      font-semibold
+
+      ${
+        vista === "stock"
+          ? "bg-[#b9742d]"
+          : "bg-zinc-800"
+      }
+    `}
+  >
+    📦 Stock
+  </button>
+
+</div>
+
+{
+  vista === "cocina" && (
+
+      <div
+      className="
+      grid
+      grid-cols-3
+      gap-3
+      ">
+
       
-      
-      {
+      {       
+      Object.entries(
 
-
-        
-  Object.entries(
-
-    items.reduce(
+      items.reduce(
       (acc: any, item: any) => {
 
         if (
-  !acc[item.batch_id]
-) {
+       !acc[item.batch_id]
+        ) {
 
   acc[item.batch_id] = [];
 
@@ -206,14 +403,13 @@ acc[item.batch_id].push(
     mb-3
   "
 >
-  Mesa {
-    orders.find(
-      (o) =>
-        o.id ===
-        productos[0].order_id
-    )?.mesa || "?"
-  }
-</h2>
+Mesa {
+  orders.find(
+    (o) =>
+      o.id ===
+      productos[0].order_id
+  )?.mesa || "?"
+}</h2>
 
 <p
   className="
@@ -233,6 +429,8 @@ acc[item.batch_id].push(
       }
     )
   }
+
+
 </p>
 
 <p
@@ -331,17 +529,19 @@ acc[item.batch_id].push(
           !acc[item.product_name]
         ) {
 
-          acc[item.product_name] = {
-            nombre:
-              item.product_name,
-            cantidad: 1
-          };
+         acc[item.product_name] = {
+  nombre:
+    item.product_name,
+  cantidad:
+    item.cantidad || 1
+};
 
         } else {
 
           acc[
-            item.product_name
-          ].cantidad++;
+  item.product_name
+].cantidad +=
+  item.cantidad || 1;
 
         }
 
@@ -368,6 +568,92 @@ acc[item.batch_id].push(
       </div>
 
     )
+  )
+}
+</div>
+)
+}
+
+{
+  vista === "stock" && (
+
+    <div
+      className="
+        bg-zinc-900
+        rounded-3xl
+        p-6
+      "
+    >
+
+      <h2
+        className="
+          text-2xl
+          font-bold
+          mb-6
+        "
+      >
+        📦 Stock Cocina
+      </h2>
+
+      <div className="space-y-3">
+
+        {
+          productos.map(
+            (producto) => (
+
+              <div
+                key={producto.id}
+                className="
+                  bg-zinc-800
+                  rounded-xl
+                  p-4
+                  flex
+                  justify-between
+                  items-center
+                "
+              >
+
+                <p>
+                  {producto.name}
+                </p>
+
+                <button
+  onClick={() =>
+    toggleProducto(
+      producto.id,
+      producto.active
+    )
+  }
+  className={`
+                    px-3
+                    py-2
+                    rounded-xl
+                    font-semibold
+
+                    ${
+                      producto.active
+                        ? "bg-green-600"
+                        : "bg-red-600"
+                    }
+                  `}
+                >
+                  {
+                    producto.active
+                      ? "✅ Disponible"
+                      : "❌ Agotado"
+                  }
+                </button>
+
+              </div>
+
+            )
+          )
+        }
+
+      </div>
+
+    </div>
+
   )
 }
 

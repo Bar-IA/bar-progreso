@@ -3,13 +3,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function CocinaPage() {
+export default function BarraPage() {
 
   const [items, setItems] =
     useState<any[]>([]);
 
+    const [vista, setVista] =
+  useState("barra");
+
     const [orders, setOrders] =
   useState<any[]>([]);
+
+  const [productos, setProductos] =
+  useState<any[]>([]);
+
+  const [now, setNow] =
+  useState(Date.now());
 
   useEffect(() => {
 
@@ -20,6 +29,7 @@ export default function CocinaPage() {
           .from("order_items")
           .select("*")
           .eq("area", "barra")
+          .neq("estado", "Entregado")
           .order(
             "created_at",
             {
@@ -55,14 +65,135 @@ export default function CocinaPage() {
   } else {
 
     setOrders(data || []);
+    console.log("ORDERS", data);
 
   }
 
 };
 
+const loadProductos = async () => {
+
+  const { data, error } =
+    await supabase
+      .from("products")
+      .select("*")
+      .eq("area", "barra")
+      .order("name");
+
+  if (error) {
+
+    console.error(error);
+
+  } else {
+
+    setProductos(
+      data || []
+    );
+
+  }
+
+};
 loadOrders();
+loadProductos();
+
+
+const ordersChannel = supabase
+  .channel("barra-orders")
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "orders"
+    },
+    async () => {
+
+      const { data } =
+        await supabase
+          .from("orders")
+          .select("*");
+
+      setOrders(
+        data || []
+      );
+
+    }
+  )
+  .subscribe();
+const channel = supabase
+  .channel("barra-realtime")
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "order_items"
+    },
+    async () => {
+
+      const { data } =
+        await supabase
+          .from("order_items")
+          .select("*")
+          .eq("area", "barra")
+          .neq(
+            "estado",
+            "Entregado"
+          )
+          .order(
+            "created_at",
+            {
+              ascending: false
+            }
+          );
+
+      setItems(
+        data || []
+      );
+
+      const { data: ordersData } =
+  await supabase
+    .from("orders")
+    .select("*");
+
+setOrders(
+  ordersData || []
+);
+
+    }
+  )
+  .subscribe();
+
+  return () => {
+
+  supabase.removeChannel(
+    channel
+  );
+
+  
+
+
+};
 
   }, []);
+
+  useEffect(() => {
+
+  const interval =
+    setInterval(() => {
+
+      setNow(
+        Date.now()
+      );
+
+    }, 60000);
+
+  return () =>
+    clearInterval(
+      interval
+    );
+
+}, []);
 
   const cambiarEstado = async (
   productos: any[]
@@ -109,6 +240,8 @@ loadOrders();
 
     console.error(error);
 
+
+    
     return;
 
   }
@@ -127,6 +260,41 @@ loadOrders();
 
 };
 
+const toggleProducto = async (
+  id: number,
+  active: boolean
+) => {
+
+  const { error } =
+    await supabase
+      .from("products")
+      .update({
+        active: !active
+      })
+      .eq("id", id);
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  setProductos(
+    productos.map(
+      (p) =>
+        p.id === id
+          ? {
+              ...p,
+              active: !active
+            }
+          : p
+    )
+  );
+
+};
+
   return (
 
     <main className="p-6 bg-[#0f0f0f] min-h-screen text-white">
@@ -135,23 +303,78 @@ loadOrders();
         🍺 Barra
       </h1>
 
-      {
-  Object.entries(
+      <div className="flex gap-3 mb-6">
 
-    items.reduce(
+  <button
+    onClick={() =>
+      setVista("barra")
+    }
+    className={`
+      px-4
+      py-2
+      rounded-xl
+      font-semibold
+
+      ${
+        vista === "barra"
+          ? "bg-[#b9742d]"
+          : "bg-zinc-800"
+      }
+    `}
+  >
+    🍺 Barra
+  </button>
+
+  <button
+    onClick={() =>
+      setVista("stock")
+    }
+    className={`
+      px-4
+      py-2
+      rounded-xl
+      font-semibold
+
+      ${
+        vista === "stock"
+          ? "bg-[#b9742d]"
+          : "bg-zinc-800"
+      }
+    `}
+  >
+    📦 Stock
+  </button>
+
+</div>
+
+{
+  vista === "barra" && (
+
+      <div
+      className="
+      grid
+      grid-cols-3
+      gap-3
+      ">
+
+      
+      {       
+      Object.entries(
+
+      items.reduce(
       (acc: any, item: any) => {
 
         if (
-          !acc[item.order_id]
+       !acc[item.batch_id]
         ) {
 
-          acc[item.order_id] = [];
+  acc[item.batch_id] = [];
 
-        }
+}
 
-        acc[item.order_id].push(
-          item
-        );
+acc[item.batch_id].push(
+  item
+);
 
         return acc;
 
@@ -159,6 +382,7 @@ loadOrders();
       {}
     )
 
+    
   ).map(
     ([orderId, productos]: any) => (
 
@@ -179,14 +403,83 @@ loadOrders();
     mb-3
   "
 >
-  Mesa {
-    orders.find(
-      (o) =>
-        o.id ===
-        productos[0].order_id
-    )?.mesa || "?"
+Mesa {
+  orders.find(
+    (o) =>
+      o.id ===
+      productos[0].order_id
+  )?.mesa || "?"
+}</h2>
+
+<p
+  className="
+    text-xs
+    text-gray-500
+    mb-2
+  "
+>
+  Comanda {
+    new Date(
+      productos[0].created_at
+    ).toLocaleTimeString(
+      "es-ES",
+      {
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    )
   }
-</h2>
+
+
+</p>
+
+<p
+  className={`
+    text-sm
+    font-bold
+    mb-2
+
+    ${
+      Math.floor(
+        (
+          now -
+          new Date(
+            productos[0].created_at
+          ).getTime()
+        ) /
+        60000
+      ) >= 20
+
+        ? "text-red-500"
+
+        : Math.floor(
+            (
+              now -
+              new Date(
+                productos[0].created_at
+              ).getTime()
+            ) /
+            60000
+          ) >= 10
+
+        ? "text-orange-500"
+
+        : "text-green-500"
+    }
+  `}
+>
+  ⏱️ {
+    Math.floor(
+      (
+        now -
+        new Date(
+          productos[0].created_at
+        ).getTime()
+      ) /
+      60000
+    )
+  } min
+</p>
 
 <p
   className="
@@ -236,17 +529,19 @@ loadOrders();
           !acc[item.product_name]
         ) {
 
-          acc[item.product_name] = {
-            nombre:
-              item.product_name,
-            cantidad: 1
-          };
+         acc[item.product_name] = {
+  nombre:
+    item.product_name,
+  cantidad:
+    item.cantidad || 1
+};
 
         } else {
 
           acc[
-            item.product_name
-          ].cantidad++;
+  item.product_name
+].cantidad +=
+  item.cantidad || 1;
 
         }
 
@@ -262,7 +557,7 @@ loadOrders();
       key={producto.nombre}
       className="mb-1"
     >
-      🍺 {producto.nombre}
+      🍔 {producto.nombre}
       {" x"}
       {producto.cantidad}
     </p>
@@ -273,6 +568,92 @@ loadOrders();
       </div>
 
     )
+  )
+}
+</div>
+)
+}
+
+{
+  vista === "stock" && (
+
+    <div
+      className="
+        bg-zinc-900
+        rounded-3xl
+        p-6
+      "
+    >
+
+      <h2
+        className="
+          text-2xl
+          font-bold
+          mb-6
+        "
+      >
+        📦 Stock Barra
+      </h2>
+
+      <div className="space-y-3">
+
+        {
+          productos.map(
+            (producto) => (
+
+              <div
+                key={producto.id}
+                className="
+                  bg-zinc-800
+                  rounded-xl
+                  p-4
+                  flex
+                  justify-between
+                  items-center
+                "
+              >
+
+                <p>
+                  {producto.name}
+                </p>
+
+                <button
+  onClick={() =>
+    toggleProducto(
+      producto.id,
+      producto.active
+    )
+  }
+  className={`
+                    px-3
+                    py-2
+                    rounded-xl
+                    font-semibold
+
+                    ${
+                      producto.active
+                        ? "bg-green-600"
+                        : "bg-red-600"
+                    }
+                  `}
+                >
+                  {
+                    producto.active
+                      ? "✅ Disponible"
+                      : "❌ Agotado"
+                  }
+                </button>
+
+              </div>
+
+            )
+          )
+        }
+
+      </div>
+
+    </div>
+
   )
 }
 

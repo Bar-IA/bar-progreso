@@ -23,12 +23,19 @@ const [pedidoActivo, setPedidoActivo] =
   const [pedidoActual, setPedidoActual] =
   useState<any>(null);
 
+  const [pedidoItems, setPedidoItems] =
+  useState<any[]>([]);
+
   const totalConsumido =
-  pedidoActual
-    ? Number(
-        pedidoActual.total
-      )
-    : 0;
+  pedidoItems.reduce(
+    (acc, item) =>
+      acc +
+      (
+        Number(item.precio || 0) *
+        Number(item.cantidad || 1)
+      ),
+    0
+  );
 
   const pedidoActivoAgrupado = Object.values(
   pedidoActivo.reduce((acc: any, item: any) => {
@@ -52,42 +59,46 @@ const [pedidoActivo, setPedidoActivo] =
 );
 
 const pedidoActualAgrupado =
-  pedidoActual?.pedido
+  Object.values(
 
-    ? Object.values(
+    pedidoItems.reduce(
+      (
+        acc: any,
+        item: any
+      ) => {
 
-        pedidoActual.pedido.reduce(
-          (
-            acc: any,
-            item: any
-          ) => {
+        if (
+          !acc[item.product_name]
+        ) {
 
-            if (
-              !acc[item.name]
-            ) {
+          acc[
+            item.product_name
+          ] = {
 
-              acc[item.name] = {
-                ...item,
-                cantidad: 1
-              };
+            name:
+              item.product_name,
 
-            } else {
+            cantidad:
+              item.cantidad || 1
 
-              acc[
-                item.name
-              ].cantidad++;
+          };
 
-            }
+        } else {
 
-            return acc;
+          acc[
+            item.product_name
+          ].cantidad +=
+            item.cantidad || 1;
 
-          },
-          {}
-        )
+        }
 
-      )
+        return acc;
 
-    : [];
+      },
+      {}
+    )
+
+  );
 
 const [openCart, setOpenCart] = useState(false);
 useEffect(() => {
@@ -253,12 +264,26 @@ console.log("ENTRA EN IF?", !!data);
 console.log("ERROR:", error);
       if (data) {
 
-        setEstadoPedido(
-          data.estado
-        );
-        setPedidoActual(data);
+  setEstadoPedido(
+    data.estado
+  );
 
-      }
+  setPedidoActual(data);
+
+  const { data: items } =
+    await supabase
+      .from("order_items")
+      .select("*")
+      .eq(
+        "order_id",
+        data.id
+      );
+
+  setPedidoItems(
+    items || []
+  );
+
+}
 
     };
 
@@ -288,11 +313,78 @@ console.log("CLIENTE REALTIME", payload);
         setPedidoActual(
   payload.new
 );
+if (
+  payload.new.estado ===
+    "Cobrado" ||
+  payload.new.cuenta_abierta ===
+    false
+) {
+
+  localStorage.removeItem(
+    "pedido_id"
+  );
+
+  setPedidoActual(
+    null
+  );
+
+  setPedidoItems([]);
+
+  setEstadoPedido(
+    null
+  );
+
+}
 
       }
 
     }
   )
+  .on(
+  "postgres_changes",
+  {
+    event: "*",
+    schema: "public",
+    table: "order_items"
+  },
+  async () => {
+    console.log(
+  "REALTIME ORDER_ITEMS"
+);
+
+   const { data: pedido } =
+  await supabase
+    .from("orders")
+    .select("id")
+    .eq("mesa", mesa)
+    .eq(
+      "cuenta_abierta",
+      true
+    )
+    .maybeSingle();
+
+if (!pedido) return;
+
+const { data: items } =
+  await supabase
+    .from("order_items")
+    .select("*")
+    .eq(
+      "order_id",
+      pedido.id
+    );
+
+setPedidoItems(
+  items || []
+);
+
+    setPedidoItems(
+      items || []
+    );
+
+  }
+  
+)
   .subscribe();
 
   return () => {

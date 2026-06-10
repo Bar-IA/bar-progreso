@@ -9,13 +9,65 @@ const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
 const [logged, setLogged] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] =
+  useState<any[]>([]);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
-  const [category, setCategory] = useState("Hamburguesas");
+  const [category, setCategory] =
+  useState("");
+  const [vista, setVista] =
+  useState("productos");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [description, setDescription] =  useState("");
+  const [newCategory, setNewCategory] =
+  useState("");
+
+  const [newCategoryIcon,
+  setNewCategoryIcon] =
+  useState("burger");
+  const [editingCategoryId,
+  setEditingCategoryId] =
+  useState<number | null>(
+    null
+  );
+
+const [editingCategoryName,
+  setEditingCategoryName] =
+  useState("");
+
+ const iconos: any = {
+
+  burger: "🍔",
+  pizza: "🍕",
+  fries: "🍟",
+  coffee: "☕",
+  drink: "🍹",
+  cake: "🍰",
+  tapas: "🍤",
+  salad: "🥗",
+  fish: "🐟",
+  cocktail: "🍸",
+  wine: "🍷",
+
+  meat: "🥩",
+  sushi: "🍣",
+  chicken: "🍗",
+  breakfast: "🥖",
+  pasta: "🍝",
+  sandwich: "🥪",
+  hotdog: "🌭",
+  icecream: "🍨",
+  vegan: "🌱",
+  menu: "📋",
+  kids: "🧒",
+  grill: "🔥",
+  generic: "🍽️"
+
+};
 
   const loadProducts = async () => {
+
+    
 
     const { data } = await supabase
       .from("products")
@@ -28,11 +80,39 @@ const [logged, setLogged] = useState(false);
 
   };
 
+  const loadCategories =
+  async () => {
+
+    const { data } =
+      await supabase
+  .from("categories")
+  .select("*")
+  .order("orden");
+
+    if (data) {
+
+  setCategories(data);
+
+  if (data.length > 0) {
+
+    setCategory(
+      String(data[0].id)
+    );
+
+  }
+
+}
+
+  };
+
 
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+
+  loadProducts();
+  loadCategories();
+
+}, []);
 
 useEffect(() => {
 
@@ -59,33 +139,65 @@ useEffect(() => {
     await supabase
       .from("products")
       .update({
-  category,
+
+  category:
+    categories.find(
+      c =>
+        c.id ===
+        Number(category)
+    )?.name,
+
+  category_id:
+    Number(category),
+
   name,
   description,
-  price: Number(price)
+  price:
+    Number(price)
+
 })
       .eq("id", editingId);
 
   } else {
 
-    await supabase
-      .from("products")
-      .insert([
-  {
-    category,
-    name,
-    description,
-    price: Number(price),
-    active: true,
-    featured: false
-  }
-]);
+    const { data, error } =
+  await supabase
+    .from("products")
+    .insert([
+      {
+  category:
+    categories.find(
+      c =>
+        c.id ===
+        Number(category)
+    )?.name,
+
+  category_id:
+    Number(category),
+
+  name,
+  description,
+  price: Number(price),
+  active: true,
+  featured: false
+}
+    ]);
+
+console.log(
+  "INSERT DATA",
+  data
+);
+
+console.log(
+  "INSERT ERROR",
+  error
+);
 
   }
 
   setName("");
   setPrice("");
-  setCategory("Hamburguesas");
+  setCategory("");
   setEditingId(null);
   setDescription("");
 
@@ -106,6 +218,115 @@ useEffect(() => {
 
   };
 
+  const addCategory = async () => {
+
+  if (!newCategory.trim())
+    return;
+
+  const ultimoOrden =
+    categories.length > 0
+      ? Math.max(
+          ...categories.map(
+            (c) => c.orden || 0
+          )
+        )
+      : 0;
+
+  const { error } =
+    await supabase
+      .from("categories")
+      .insert([
+  {
+    name: newCategory,
+    icon:
+      newCategoryIcon,
+    active: true,
+    orden:
+      ultimoOrden + 1
+  }
+]);
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  setNewCategory("");
+
+  setNewCategoryIcon(
+  "burger"
+);
+
+  loadCategories();
+
+};
+
+const toggleCategory = async (
+  id: number,
+  active: boolean
+) => {
+
+  const { error } =
+    await supabase
+      .from("categories")
+      .update({
+        active: !active
+      })
+      .eq("id", id);
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  loadCategories();
+
+};
+
+const saveCategory = async () => {
+
+  if (
+    !editingCategoryId
+  ) return;
+
+  const { error } =
+    await supabase
+      .from("categories")
+      .update({
+        name:
+          editingCategoryName
+      })
+      .eq(
+        "id",
+        editingCategoryId
+      );
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  setEditingCategoryId(
+    null
+  );
+
+  setEditingCategoryName(
+    ""
+  );
+
+  loadCategories();
+
+};
+
 const login = async () => {
 
   const { error } =
@@ -123,20 +344,22 @@ const login = async () => {
 
 };
 
-const groupedProducts = products.reduce(
-  (acc: any, product) => {
+const groupedProducts =
+  categories.reduce(
+    (acc: any, category) => {
 
-    if (!acc[product.category]) {
-      acc[product.category] = [];
-    }
+      acc[category.name] =
+        products.filter(
+          (product) =>
+            product.category_id ===
+            category.id
+        );
 
-    acc[product.category].push(product);
+      return acc;
 
-    return acc;
-
-  },
-  {}
-);
+    },
+    {}
+  );
 
 if (!logged) {
 
@@ -199,6 +422,7 @@ if (!logged) {
     <h1 className="text-4xl font-bold">
       Panel Admin
     </h1>
+    
 
     <button
       onClick={async () => {
@@ -219,40 +443,74 @@ if (!logged) {
     </button>
 
   </div>
+<div className="flex gap-3 mb-6">
 
+  <button
+    onClick={() =>
+      setVista("productos")
+    }
+    className={`
+      px-4
+      py-2
+      rounded-xl
+      font-semibold
+
+      ${
+        vista === "productos"
+          ? "bg-[#b9742d]"
+          : "bg-zinc-800"
+      }
+    `}
+  >
+    🍔 Productos
+  </button>
+
+  <button
+    onClick={() =>
+      setVista("categorias")
+    }
+    className={`
+      px-4
+      py-2
+      rounded-xl
+      font-semibold
+
+      ${
+        vista === "categorias"
+          ? "bg-[#b9742d]"
+          : "bg-zinc-800"
+      }
+    `}
+  >
+    📂 Categorías
+  </button>
+
+</div>
+{
+  vista === "productos" && (
+    <>
   <div className="flex gap-4 mb-8">
     
 <select
   value={category}
   onChange={(e) =>
-    setCategory(e.target.value)
+    setCategory(
+      e.target.value
+    )
   }
   className="border p-2"
 >
 
- <option value="burgers">
-  Hamburguesas
-</option>
+  {categories.map((cat) => (
 
-<option value="pizzas">
-  Pizzas
-</option>
+    <option
+      key={cat.id}
+      value={cat.id}
+    >
+      {cat.name}
+    </option>
 
-<option value="tapas">
-  Tapas
-</option>
-
-<option value="patatas">
-  Patatas
-</option>
-
-<option value="bebidas">
-  Bebidas
-</option>
-
-<option value="postres">
-  Postres
-</option>
+  ))}
 
 </select>
         <input
@@ -357,8 +615,10 @@ if (!logged) {
                 );
 
                 setCategory(
-                  product.category
-                );
+  String(
+    product.category_id
+  )
+);
 
                 setDescription(
                   product.description || ""
@@ -389,6 +649,318 @@ if (!logged) {
 
 ))}
 
+    </>
+
+  )
+}
+
+  
+{
+  vista === "categorias" && (
+
+    <div
+      className="
+        bg-zinc-900
+        rounded-3xl
+        p-6
+      "
+    >
+
+      <h2
+        className="
+          text-2xl
+          font-bold
+          mb-6
+        "
+      >
+        📂 Categorías
+      </h2>
+
+      <div
+  className="
+    flex
+    gap-3
+    mb-6
+  "
+>
+
+  <input
+    value={newCategory}
+    onChange={(e) =>
+      setNewCategory(
+        e.target.value
+      )
+    }
+    placeholder="Nueva categoría"
+    className="
+      flex-1
+      bg-zinc-800
+      rounded-xl
+      px-4
+      py-3
+    "
+  />
+  <select
+  value={
+    newCategoryIcon
+  }
+  onChange={(e) =>
+    setNewCategoryIcon(
+      e.target.value
+    )
+  }
+  className="
+    bg-zinc-800
+    rounded-xl
+    px-4
+    py-3
+  "
+>
+<option value="generic">
+    🍽️ Otros
+  </option>
+
+  <option value="burger">
+    🍔 Hamburguesa
+  </option>
+
+  <option value="pizza">
+    🍕 Pizza
+  </option>
+
+  <option value="fries">
+    🍟 Patatas
+  </option>
+
+  <option value="coffee">
+    ☕ Café
+  </option>
+
+  <option value="drink">
+    🍹 Bebidas
+  </option>
+
+  <option value="cake">
+    🍰 Postres
+  </option>
+
+  <option value="salad">
+    🥗 Ensaladas
+  </option>
+
+  <option value="fish">
+    🐟 Pescado
+  </option>
+
+  <option value="cocktail">
+    🍸 Copas
+  </option>
+
+  <option value="meat">
+  🥩 Carnes
+</option>
+
+<option value="sushi">
+  🍣 Sushi
+</option>
+
+<option value="chicken">
+  🍗 Pollo
+</option>
+
+<option value="breakfast">
+  🥖 Desayunos
+</option>
+
+<option value="pasta">
+  🍝 Pasta
+</option>
+
+<option value="sandwich">
+  🥪 Bocadillos
+</option>
+
+<option value="hotdog">
+  🌭 Perritos
+</option>
+
+<option value="icecream">
+  🍨 Helados
+</option>
+
+<option value="vegan">
+  🌱 Vegano
+</option>
+
+<option value="menu">
+  📋 Menú
+</option>
+
+<option value="kids">
+  🧒 Infantil
+</option>
+
+<option value="grill">
+  🔥 Parrilla
+</option>
+
+</select>
+
+  <button
+    onClick={addCategory}
+    className="
+      bg-green-600
+      px-4
+      rounded-xl
+      font-semibold
+    "
+  >
+    Añadir
+  </button>
+
+</div>
+
+      {categories.map((cat) => (
+
+        <div
+  key={cat.id}
+  className={`
+    rounded-xl
+    p-4
+    mb-3
+    flex
+    justify-between
+    items-center
+
+    ${
+      cat.active
+        ? "bg-zinc-800"
+        : "bg-zinc-900 opacity-50"
+    }
+  `}
+>
+
+{
+  editingCategoryId ===
+  cat.id ? (
+
+    <input
+      value={
+        editingCategoryName
+      }
+      onChange={(e) =>
+        setEditingCategoryName(
+          e.target.value
+        )
+      }
+      className="
+        bg-zinc-700
+        rounded-lg
+        px-3
+        py-2
+      "
+    />
+
+  ) : (
+
+    <span>
+
+      {iconos[
+        cat.icon
+      ]}
+
+      {" "}
+
+      {cat.name}
+
+    </span>
+
+  )
+}
+
+          <div
+  className="
+    flex
+    gap-4
+    items-center
+  "
+>
+
+  {
+    editingCategoryId ===
+    cat.id ? (
+
+      <button
+        onClick={
+          saveCategory
+        }
+        className="
+          text-green-400
+          font-semibold
+        "
+      >
+        Guardar
+      </button>
+
+    ) : (
+
+      <button
+        onClick={() => {
+
+          setEditingCategoryId(
+            cat.id
+          );
+
+          setEditingCategoryName(
+            cat.name
+          );
+
+        }}
+        className="
+          text-blue-400
+          font-semibold
+        "
+      >
+        Editar
+      </button>
+
+    )
+  }
+
+  <button
+    onClick={() =>
+      toggleCategory(
+        cat.id,
+        cat.active
+      )
+    }
+    className={`
+      font-semibold
+
+      ${
+        cat.active
+          ? "text-red-400"
+          : "text-green-400"
+      }
+    `}
+  >
+    {
+      cat.active
+        ? "Ocultar"
+        : "Mostrar"
+    }
+  </button>
+
+</div>
+
+        </div>
+
+      ))}
+
+    </div>
+
+  )
+}
     </main>
 
   );

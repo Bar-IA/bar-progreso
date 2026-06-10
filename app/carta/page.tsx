@@ -11,8 +11,11 @@ export default function CartaPage() {
 
 const [mesa, setMesa] = useState("Sin mesa");
 const [categoria, setCategoria] =
-useState("burgers");
+useState("");
 const [products, setProducts] =
+useState<any[]>([]);
+
+const [categorias, setCategorias] =
 useState<any[]>([]);
 
 const [estadoPedido, setEstadoPedido] =
@@ -122,8 +125,51 @@ useEffect(() => {
 
   };
 
+  const loadCategories =
+  async () => {
+
+    const { data, error } =
+      await supabase
+        .from("categories")
+        .select("*")
+        .eq("active", true)
+        .order("orden");
+
+        console.log("DATA CATEGORIES", data);
+console.log("ERROR CATEGORIES", error);
+
+    if (error) {
+
+      console.error(error);
+
+    } else {
+
+      setCategorias(
+        data || []
+      );
+      console.log(
+  "CATEGORIAS",
+  data
+);
+
+      if (
+        data &&
+        data.length > 0
+      ) {
+
+        setCategoria(
+          String(data[0].id)
+        );
+
+      }
+
+    }
+
+  };
+
 
   loadProducts();
+  loadCategories();
 
   const channel = supabase
   .channel("products-realtime")
@@ -442,32 +488,13 @@ const cartAgrupado = Object.values(
 );
 
 
-const categorias = [
-{
-id: "burgers",
-nombre: "🍔 Hamburguesas",
-},
-{
-id: "pizzas",
-nombre: "🍕 Pizzas",
-},
-{
-id: "tapas",
-nombre: "🍤 Tapas",
-},
-{
-id: "patatas",
-nombre: "🍟 Patatas",
-},
-{
-id: "Bebidas",
-nombre: "🍹 Bebidas",
-},
-];
+
 
 const items = products.filter(
   (product) =>
-    product.category === categoria
+    String(
+      product.category_id
+    ) === categoria
 );
 
 return ( <main>
@@ -508,9 +535,11 @@ return ( <main>
 
         <button
           key={cat.id}
-          onClick={() =>
-            setCategoria(cat.id)
-          }
+         onClick={() =>
+  setCategoria(
+    String(cat.id)
+  )
+}
           className={`
           rounded-3xl p-6 text-center transition-all
           ${
@@ -520,16 +549,9 @@ return ( <main>
           }
         `}
         >
-          <div className="text-3xl mb-2">
-            {cat.nombre.split(" ")[0]}
-          </div>
-
-          <div>
-            {cat.nombre.replace(
-              cat.nombre.split(" ")[0],
-              ""
-            )}
-          </div>
+          <div className="font-semibold">
+  {cat.name}
+</div>
 
         </button>
 

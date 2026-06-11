@@ -10,8 +10,15 @@ import { supabase } from "@/lib/supabase";
 export default function CartaPage() {
 
 const [mesa, setMesa] = useState("Sin mesa");
+const [
+  restaurantId,
+  setRestaurantId
+] = useState<
+  number | null
+>(null);
 const [categoria, setCategoria] =
 useState("");
+
 const [products, setProducts] =
 useState<any[]>([]);
 
@@ -28,6 +35,9 @@ const [pedidoActivo, setPedidoActivo] =
 
   const [pedidoItems, setPedidoItems] =
   useState<any[]>([]);
+  const [comentariosAbiertos,
+  setComentariosAbiertos] =
+useState<string[]>([]);
 
   const totalConsumido =
   pedidoItems.reduce(
@@ -106,13 +116,22 @@ const pedidoActualAgrupado =
 const [openCart, setOpenCart] = useState(false);
 useEffect(() => {
 
+   if (!restaurantId)
+    return;
+
   const loadProducts = async () => {
 
     const { data, error } = await supabase
   .from("products")
   .select("*")
-  .eq("restaurant_id", 1)
-  .eq("active", true);
+  .eq(
+    "restaurant_id",
+    restaurantId
+  )
+  .eq(
+    "active",
+    true
+  );
       
       
 
@@ -132,6 +151,10 @@ useEffect(() => {
       await supabase
         .from("categories")
         .select("*")
+        .eq(
+  "restaurant_id",
+  restaurantId
+)
         .eq("active", true)
         .order("orden");
 
@@ -196,7 +219,7 @@ console.log("ERROR CATEGORIES", error);
 
 };
 
-}, []);
+}, [restaurantId]);
 
 
   useEffect(() => {
@@ -209,6 +232,11 @@ console.log("ERROR CATEGORIES", error);
 
   const mesaUrl = params.get("mesa");
 
+  const restaurantUrl =
+  params.get(
+    "restaurant"
+  );
+
   console.log("Mesa URL:", mesaUrl);
 console.log("Mesa guardada:", localStorage.getItem("mesa"));
 console.log("Timestamp:", localStorage.getItem("mesa_timestamp"));
@@ -219,6 +247,20 @@ console.log("Timestamp:", localStorage.getItem("mesa_timestamp"));
       "mesa",
       mesaUrl
     );
+    if (restaurantUrl) {
+
+  localStorage.setItem(
+    "restaurant_id",
+    restaurantUrl
+  );
+
+  setRestaurantId(
+    Number(
+      restaurantUrl
+    )
+  );
+
+}
 
     localStorage.setItem(
       "mesa_timestamp",
@@ -231,6 +273,23 @@ console.log("Timestamp:", localStorage.getItem("mesa_timestamp"));
 
     const mesaGuardada =
       localStorage.getItem("mesa");
+
+      const restaurantGuardado =
+  localStorage.getItem(
+    "restaurant_id"
+  );
+
+if (
+  restaurantGuardado
+) {
+
+  setRestaurantId(
+    Number(
+      restaurantGuardado
+    )
+  );
+
+}
 
     const timestamp =
       localStorage.getItem(
@@ -283,6 +342,11 @@ const pedidoId =
   );
 
   console.log("MESA ACTUAL", mesa);
+
+  console.log(
+  "RESTAURANT:",
+  restaurantId
+);
 
 console.log(
   "PEDIDO ID",
@@ -447,16 +511,15 @@ setPedidoItems(
 
 
 const addToCart = (item: any) => {
-  console.log("ITEM:", item);
 
-  try {
-    setCart((prev) => [
-      ...prev,
-      item
-    ]);
-  } catch (error) {
-    console.error(error);
-  }
+  setCart((prev) => [
+    ...prev,
+    {
+      ...item,
+      comentario: ""
+    }
+  ]);
+
 };
 
 const removeFromCart = (index: number) => {
@@ -567,6 +630,23 @@ return ( <main>
     key={item.name}
     className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 hover:border-[#b9742d] transition"
   >
+    {item.image_url && (
+
+  <img
+    src={item.image_url}
+    alt={item.name}
+    className="
+  w-full
+  h-56
+  object-cover
+  rounded-2xl
+  mb-4
+  border
+  border-zinc-800
+"
+  />
+
+)}
 
     <div className="flex justify-between">
 
@@ -816,6 +896,86 @@ return ( <main>
   {item.cantidad > 1 &&
     ` x${item.cantidad}`}
 </p>
+<button
+  onClick={() => {
+
+    if (
+      comentariosAbiertos.includes(
+        item.name
+      )
+    ) {
+
+      setComentariosAbiertos(
+        comentariosAbiertos.filter(
+          c => c !== item.name
+        )
+      );
+
+    } else {
+
+      setComentariosAbiertos([
+        ...comentariosAbiertos,
+        item.name
+      ]);
+
+    }
+
+  }}
+  className="
+    text-xs
+    text-[#b9742d]
+    mt-2
+  "
+>
+
+  {
+    comentariosAbiertos.includes(
+      item.name
+    )
+      ? "▲ Ocultar comentario"
+    : "▼ Añadir comentario"
+  }
+
+</button>
+{comentariosAbiertos.includes(
+  item.name
+) && (
+
+  <input
+    type="text"
+    placeholder="Comentario..."
+    value={
+      item.comentario || ""
+    }
+    onChange={(e) => {
+
+      setCart(prev =>
+        prev.map(p =>
+
+          p.name === item.name
+            ? {
+                ...p,
+                comentario:
+                  e.target.value
+              }
+            : p
+
+        )
+      );
+
+    }}
+    className="
+      mt-2
+      w-full
+      bg-zinc-800
+      rounded-lg
+      px-3
+      py-2
+      text-sm
+    "
+  />
+
+)}
       <p className="text-[#b9742d] text-sm">
   {(Number(item.price) * item.cantidad).toFixed(2)}€
 </p>
@@ -902,6 +1062,15 @@ return ( <main>
     <button
   onClick={() => {
 
+    if (!restaurantId) {
+
+    alert(
+      "Error: restaurante no identificado"
+    );
+
+    return;
+
+  }
 
     const pedidoAgrupado = Object.values(
   cart.reduce((acc: any, item: any) => {
@@ -950,10 +1119,7 @@ Total: ${total.toFixed(2)}€
 Enviado desde Bar IA`
 );
 
-  window.open(
-    `https://wa.me/34655311967?text=${mensaje}`,
-    "_blank"
-  );
+ 
 
   (async () => {
 
@@ -975,7 +1141,7 @@ console.log("MESA", mesa);
         .from("orders")
         .insert([
           {
-            restaurant_id: 1,
+            restaurant_id: restaurantId,
             mesa,
             pedido: cart,
             total,
@@ -1012,21 +1178,20 @@ await supabase
   .insert(
 
     cart.map((item) => ({
-      order_id: data.id,
-      product_id: item.id,
+  order_id: data.id,
+  product_id: item.id,
+  product_name: item.name,
+  precio: item.price,
+  cantidad: 1,
 
-      product_name: item.name,
-      precio: item.price,
+  comentario:
+    item.comentario || "",
 
-      cantidad: 1,
-
-      estado: "Pendiente",
-
-      area: item.area,
-
-      restaurant_id: 1, 
-      batch_id: batchId
-    }))
+  estado: "Pendiente",
+  area: item.area,
+  restaurant_id: restaurantId,
+  batch_id: batchId
+}))
 
   );
 
@@ -1083,23 +1248,20 @@ const { data: itemsData, error: itemsError } =
     .insert(
 
       cart.map((item) => ({
-        order_id: cuentaAbierta.id,
+  order_id: cuentaAbierta.id,
+  product_id: item.id,
+  product_name: item.name,
+  precio: item.price,
+  cantidad: 1,
 
-        product_id: item.id,
+  comentario:
+    item.comentario || "",
 
-        product_name: item.name,
-
-        precio: item.price,
-
-        cantidad: 1,
-
-        estado: "Pendiente",
-
-        area: item.area,
-
-        restaurant_id: 1,
-        batch_id: batchId
-      }))
+  estado: "Pendiente",
+  area: item.area,
+  restaurant_id: restaurantId,
+  batch_id: batchId
+}))
 
     )
     .select();
@@ -1161,6 +1323,16 @@ setCart([]);
 <button
   onClick={async () => {
 
+    if (!restaurantId) {
+
+  alert(
+    "Error: restaurante no identificado"
+  );
+
+  return;
+
+}
+
     const confirmar =
   confirm(
     `¿Llamar al camarero a la mesa ${mesa}?`
@@ -1176,15 +1348,12 @@ await supabase
   .from("solicitudes")
   .insert([
     {
-      restaurant_id: 1,
+      restaurant_id: restaurantId,
       mesa,
       tipo: "camarero"
     }
   ]);
-    window.open(
-      `https://wa.me/34655311967?text=${mensaje}`,
-      "_blank"
-    );
+   
 
   }}
   className="
@@ -1202,6 +1371,16 @@ await supabase
 <button
   onClick={async () => {
 
+    if (!restaurantId) {
+
+  alert(
+    "Error: restaurante no identificado"
+  );
+
+  return;
+
+}
+
     const confirmar =
   confirm(
     `¿Solicitar la cuenta para la mesa ${mesa}?`
@@ -1217,15 +1396,12 @@ await supabase
   .from("solicitudes")
   .insert([
     {
-      restaurant_id: 1,
+      restaurant_id: restaurantId,
       mesa,
       tipo: "cuenta"
     }
   ]);
-    window.open(
-      `https://wa.me/34655311967?text=${mensaje}`,
-      "_blank"
-    );
+    
 
   }}
   className="

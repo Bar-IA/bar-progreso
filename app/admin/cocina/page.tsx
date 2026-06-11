@@ -519,51 +519,40 @@ Mesa {
   {productos[0].estado}
 </button>
 
-        {
-  Object.values(
+        
+{productos.map((producto: any) => (
 
-    productos.reduce(
-      (acc: any, item: any) => {
+  <div
+    key={producto.id}
+    className="mb-3"
+  >
 
-        if (
-          !acc[item.product_name]
-        ) {
-
-         acc[item.product_name] = {
-  nombre:
-    item.product_name,
-  cantidad:
-    item.cantidad || 1
-};
-
-        } else {
-
-          acc[
-  item.product_name
-].cantidad +=
-  item.cantidad || 1;
-
-        }
-
-        return acc;
-
-      },
-      {}
-    )
-
-  ).map((producto: any) => (
-
-    <p
-      key={producto.nombre}
-      className="mb-1"
-    >
-      🍔 {producto.nombre}
+    <p>
+      🍔 {producto.product_name}
       {" x"}
       {producto.cantidad}
     </p>
 
-  ))
-}
+    {producto.comentario && (
+
+  <p
+    className="
+      text-red-500
+      font-bold
+      text-sm
+      ml-5
+      mt-1
+    "
+  >
+    ⚠ {producto.comentario.toUpperCase()}
+  </p>
+
+)}
+
+  </div>
+
+))}
+
 
       </div>
 

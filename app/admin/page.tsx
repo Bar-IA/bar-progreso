@@ -13,15 +13,32 @@ const [logged, setLogged] = useState(false);
   useState<any[]>([]);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [orden, setOrden] =
+  useState("");
+
+  const [openCategories,
+  setOpenCategories] =
+useState<any>({});
+  const [currentImageUrl,
+  setCurrentImageUrl] =
+useState("");
+ 
+
+const [showModal,
+  setShowModal] =
+useState(false);
   const [category, setCategory] =
   useState("");
   const [vista, setVista] =
   useState("productos");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [description, setDescription] =  useState("");
+  const [imageUrl, setImageUrl] =
+  useState("");
   const [newCategory, setNewCategory] =
   useState("");
-
+const [imageFile, setImageFile] =
+  useState<File | null>(null);
   const [newCategoryIcon,
   setNewCategoryIcon] =
   useState("burger");
@@ -89,9 +106,21 @@ const [editingCategoryName,
   .select("*")
   .order("orden");
 
-    if (data) {
+  if (data) {
 
   setCategories(data);
+
+  const abiertas: any = {};
+
+  data.forEach((cat) => {
+
+    abiertas[cat.name] = true;
+
+  });
+
+  setOpenCategories(
+    abiertas
+  );
 
   if (data.length > 0) {
 
@@ -134,6 +163,42 @@ useEffect(() => {
 
   const addProduct = async () => {
 
+
+    let uploadedImageUrl = imageUrl;
+
+if (imageFile) {
+
+  const fileName =
+    `${Date.now()}-${imageFile.name}`;
+
+  const { error } =
+    await supabase.storage
+      .from("products")
+      .upload(
+        fileName,
+        imageFile
+      );
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  const {
+    data: publicUrlData
+  } = supabase.storage
+    .from("products")
+    .getPublicUrl(
+      fileName
+    );
+
+  uploadedImageUrl =
+    publicUrlData.publicUrl;
+
+}
   if (editingId) {
 
     await supabase
@@ -152,8 +217,13 @@ useEffect(() => {
 
   name,
   description,
+  image_url:
+  uploadedImageUrl ||
+  currentImageUrl,
   price:
-    Number(price)
+    Number(price),
+    orden:
+  Number(orden),
 
 })
       .eq("id", editingId);
@@ -177,7 +247,10 @@ useEffect(() => {
 
   name,
   description,
+  image_url:
+  uploadedImageUrl,
   price: Number(price),
+  orden: Number(orden),
   active: true,
   featured: false
 }
@@ -197,9 +270,13 @@ console.log(
 
   setName("");
   setPrice("");
+  setOrden("");
   setCategory("");
   setEditingId(null);
   setDescription("");
+  setImageUrl("");
+  setImageFile(null);
+  setCurrentImageUrl("");
 
   loadProducts();
 
@@ -422,6 +499,37 @@ if (!logged) {
     <h1 className="text-4xl font-bold">
       Panel Admin
     </h1>
+
+    <button
+  onClick={() => {
+
+    setEditingId(null);
+
+    setName("");
+    setDescription("");
+    setPrice("");
+    setOrden("");
+
+    setCategory(
+      String(categories[0]?.id || "")
+    );
+
+    setImageFile(null);
+    setCurrentImageUrl("");
+
+    setShowModal(true);
+
+  }}
+  className="
+    bg-green-600
+    px-5
+    py-3
+    rounded-xl
+    font-semibold
+  "
+>
+  ➕ Nuevo producto
+</button>
     
 
     <button
@@ -489,70 +597,8 @@ if (!logged) {
 {
   vista === "productos" && (
     <>
-  <div className="flex gap-4 mb-8">
+
     
-<select
-  value={category}
-  onChange={(e) =>
-    setCategory(
-      e.target.value
-    )
-  }
-  className="border p-2"
->
-
-  {categories.map((cat) => (
-
-    <option
-      key={cat.id}
-      value={cat.id}
-    >
-      {cat.name}
-    </option>
-
-  ))}
-
-</select>
-        <input
-          placeholder="Nombre"
-          value={name}
-          onChange={(e) =>
-            setName(e.target.value)
-          }
-          className="border p-2"
-        />
-<input
-  placeholder="Descripción"
-  value={description}
-  onChange={(e) =>
-    setDescription(e.target.value)
-  }
-  className="border p-2"
-/>
-        <input
-          placeholder="Precio"
-          value={price}
-          onChange={(e) =>
-            setPrice(e.target.value)
-          }
-          className="border p-2"
-        />
-
-        <button
-          onClick={addProduct}
-          className="
-            bg-green-600
-            text-white
-            px-4
-            rounded
-          "
-        >
-          {editingId
-  ? "Guardar Cambios"
-  : "Añadir"}
-        </button>
-
-      </div>
 
       {Object.entries(groupedProducts).map(
   ([category, items]: any) => (
@@ -562,70 +608,195 @@ if (!logged) {
       className="mb-10"
     >
 
-      <h2
-        className="
-          text-2xl
-          font-bold
-          mt-8
-          mb-4
-        "
-      >
-        {category}
-      </h2>
+      <button
+  onClick={() =>
+    setOpenCategories(
+      {
+        ...openCategories,
+
+        [category]:
+          !openCategories[
+            category
+          ]
+      }
+    )
+  }
+  className="
+    w-full
+    flex
+    justify-between
+    items-center
+    bg-zinc-800
+    rounded-2xl
+    px-5
+    py-4
+    mb-4
+    text-left
+  "
+>
+
+  <span
+    className="
+      text-2xl
+      font-bold
+    "
+  >
+    {category}
+{" ("}
+{items.length}
+{")"}
+  </span>
+
+  <span>
+    {
+      openCategories[
+        category
+      ]
+        ? "▼"
+        : "▶"
+    }
+  </span>
+
+</button>
+
+      {
+  openCategories[category] && (
+
+<div
+  className="
+    grid
+    md:grid-cols-2
+    xl:grid-cols-3
+    gap-4
+  "
+>
 
       {items.map((product: any) => (
 
-        <div
-          key={product.id}
-          className="
-            flex
-            justify-between
-            border-b
-            py-3
-          "
-        >
+  <div
+    key={product.id}
+    className="
+      bg-zinc-800
+      rounded-2xl
+      overflow-hidden
+      border
+      border-zinc-700
+    "
+  >
+    {product.image_url && (
 
-          <div>
+  <img
+    src={product.image_url}
+    alt={product.name}
+    className="
+  w-full
+  h-32
+  object-contain
+  bg-zinc-900
+  p-2
+"
+  />
 
-            <p className="font-semibold">
-              {product.name}
-            </p>
+)}
+
+          <div className="p-4">
+
+            <p className="font-bold text-lg">
+  {product.name}
+</p>
 
             <p className="text-sm text-gray-500">
               {product.description}
             </p>
 
-            <p>
-              {product.price}€
-            </p>
+           <div
+  className="
+    flex
+    gap-2
+    mt-3
+  "
+>
+
+  <span
+    className="
+      bg-[#b9742d]
+      px-3
+      py-1
+      rounded-full
+      text-sm
+    "
+  >
+    💰 {product.price}€
+  </span>
+
+  <span
+    className="
+      bg-zinc-700
+      px-3
+      py-1
+      rounded-full
+      text-sm
+    "
+  >
+    📊 {product.orden}
+  </span>
+
+</div>
+
+
 
           </div>
+        
+          
 
-          <div className="flex gap-4">
+
+          <div className="flex gap-2 mt-4">
 
             <button
               onClick={() => {
 
-                setEditingId(product.id);
+ 
+  setEditingId(
+    product.id
+  );
 
-                setName(product.name);
+  setName(
+    product.name
+  );
 
-                setPrice(
-                  String(product.price)
-                );
+  setDescription(
+    product.description || ""
+  );
 
-                setCategory(
+  setPrice(
+    String(product.price)
+  );
+
+  setOrden(
+    String(
+      product.orden || 0
+    )
+  );
+  setCategory(
   String(
     product.category_id
   )
 );
 
-                setDescription(
-                  product.description || ""
-                );
+setCurrentImageUrl(
+  product.image_url || ""
+);
+  setShowModal(true);
 
-              }}
-              className="text-blue-500"
+}}
+             className="
+  flex-1
+  bg-blue-600
+  py-2
+  rounded-xl
+  text-center
+  font-semibold
+"
             >
               Editar
             </button>
@@ -634,7 +805,14 @@ if (!logged) {
               onClick={() =>
                 deleteProduct(product.id)
               }
-              className="text-red-500"
+              className="
+  flex-1
+  bg-red-600
+  py-2
+  rounded-xl
+  text-center
+  font-semibold
+"
             >
               Eliminar
             </button>
@@ -645,6 +823,8 @@ if (!logged) {
 
       ))}
 
+    </div>
+  )}
     </div>
 
 ))}
@@ -961,6 +1141,248 @@ if (!logged) {
 
   )
 }
+
+{showModal && (
+
+  <div
+    className="
+      fixed
+      inset-0
+      bg-black/70
+      flex
+      items-center
+      justify-center
+      z-50
+    "
+  >
+
+    <div
+      className="
+        bg-zinc-900
+        rounded-3xl
+        p-6
+        w-full
+        max-w-xl
+      "
+    >
+
+      <h2
+        className="
+          text-2xl
+          font-bold
+          mb-6
+        "
+      >
+        {
+  editingId
+    ? "Editar producto"
+    : "Nuevo producto"
+}
+      </h2>
+
+      <div className="space-y-4">
+
+        <input
+          value={name}
+          onChange={(e) =>
+            setName(
+              e.target.value
+            )
+          }
+          placeholder="Nombre"
+          className="
+            w-full
+            bg-zinc-800
+            rounded-xl
+            px-4
+            py-3
+          "
+        />
+
+        <input
+          value={description}
+          onChange={(e) =>
+            setDescription(
+              e.target.value
+            )
+          }
+          placeholder="Descripción"
+          className="
+            w-full
+            bg-zinc-800
+            rounded-xl
+            px-4
+            py-3
+          "
+        />
+        <select
+  value={category}
+  onChange={(e) =>
+    setCategory(
+      e.target.value
+    )
+  }
+  className="
+    w-full
+    bg-zinc-800
+    rounded-xl
+    px-4
+    py-3
+  "
+>
+  {categories.map((cat) => (
+
+    <option
+      key={cat.id}
+      value={cat.id}
+    >
+      {cat.name}
+    </option>
+
+  ))}
+</select>
+<input
+  type="file"
+  accept="image/*"
+  onChange={(e) => {
+
+    if (
+      e.target.files &&
+      e.target.files[0]
+    ) {
+
+      setImageFile(
+        e.target.files[0]
+      );
+
+    }
+
+  }}
+  className="
+    w-full
+    bg-zinc-800
+    rounded-xl
+    px-4
+    py-3
+  "
+/>
+
+{currentImageUrl && (
+
+  <img
+    src={currentImageUrl}
+    alt="preview"
+    className="
+      w-full
+      h-40
+      object-contain
+      bg-zinc-800
+      rounded-xl
+      p-2
+    "
+  />
+
+)}
+
+
+        <input
+          value={price}
+          onChange={(e) =>
+            setPrice(
+              e.target.value
+            )
+          }
+          placeholder="Precio"
+          className="
+            w-full
+            bg-zinc-800
+            rounded-xl
+            px-4
+            py-3
+          "
+        />
+
+        <input
+          value={orden}
+          onChange={(e) =>
+            setOrden(
+              e.target.value
+            )
+          }
+          placeholder="Orden"
+          className="
+            w-full
+            bg-zinc-800
+            rounded-xl
+            px-4
+            py-3
+          "
+        />
+
+        <div
+          className="
+            flex
+            gap-3
+          "
+        >
+
+          <button
+            onClick={() => {
+
+              addProduct();
+
+              setShowModal(
+                false
+              );
+
+            }}
+            className="
+              flex-1
+              bg-green-600
+              py-3
+              rounded-xl
+              font-semibold
+            "
+          >
+            Guardar
+          </button>
+
+          <button
+            onClick={() => {
+
+              setShowModal(false);
+
+setEditingId(null);
+
+setName("");
+setDescription("");
+setPrice("");
+setOrden("");
+setCurrentImageUrl("");
+
+            }}
+            className="
+              flex-1
+              bg-red-600
+              py-3
+              rounded-xl
+              font-semibold
+            "
+          >
+            Cancelar
+          </button>
+
+          
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+)}
     </main>
 
   );

@@ -16,6 +16,34 @@ const [logged, setLogged] = useState(false);
   const [orden, setOrden] =
   useState("");
 
+  const [selectedGroupId,
+  setSelectedGroupId] =
+useState<number | null>(
+  null
+);
+
+const [modifiers,
+  setModifiers] =
+useState<any[]>([]);
+
+const [newModifierName,
+  setNewModifierName] =
+useState("");
+
+  const [modifierGroups,
+  setModifierGroups] =
+useState<any[]>([]);
+
+const [selectedRestaurantId,
+  setSelectedRestaurantId] =
+useState<number | null>(
+  null
+);
+
+const [newGroupName,
+  setNewGroupName] =
+useState("");
+
   const [openCategories,
   setOpenCategories] =
 useState<any>({});
@@ -281,6 +309,168 @@ console.log(
   loadProducts();
 
 };
+
+const addModifierGroup =
+async () => {
+
+  if (
+    !editingId ||
+    !newGroupName.trim()
+  ) return;
+
+  
+  const { error } =
+    await supabase
+  .from(
+    "product_modifier_groups"
+  )
+  .insert([{
+
+    product_id:
+      editingId,
+
+    restaurant_id:
+      selectedRestaurantId,
+
+    name:
+      newGroupName,
+
+    required: false,
+
+    multiple: false
+
+  }]);
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  
+  const { data } =
+    await supabase
+      .from(
+        "product_modifier_groups"
+      )
+      .select("*")
+      .eq(
+        "product_id",
+        editingId
+      );
+
+      console.log(
+  "MODIFIER GROUPS",
+  data
+);
+
+  setModifierGroups(
+    data || []
+  );
+
+  setNewGroupName("");
+
+};
+
+const addModifier =
+async () => {
+
+  if (
+    !selectedGroupId ||
+    !newModifierName.trim()
+  ) return;
+
+  const { error } =
+    await supabase
+      .from(
+        "product_modifiers"
+      )
+      .insert([{
+
+        group_id:
+          selectedGroupId,
+
+        restaurant_id:
+          selectedRestaurantId,
+
+        name:
+          newModifierName,
+
+        price: 0
+
+      }]);
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  const { data } =
+    await supabase
+      .from(
+        "product_modifiers"
+      )
+      .select("*")
+      .eq(
+        "group_id",
+        selectedGroupId
+      );
+
+  setModifiers(
+    data || []
+  );
+
+  setNewModifierName("");
+
+};
+
+
+const deleteModifier =
+async (
+  id: number
+) => {
+
+  const { error } =
+    await supabase
+      .from(
+        "product_modifiers"
+      )
+      .delete()
+      .eq(
+        "id",
+        id
+      );
+
+  if (error) {
+
+    console.error(error);
+
+    return;
+
+  }
+
+  const { data } =
+    await supabase
+      .from(
+        "product_modifiers"
+      )
+      .select("*")
+      .eq(
+        "group_id",
+        selectedGroupId
+      );
+
+  setModifiers(
+    data || []
+  );
+
+};
+
 
   const deleteProduct = async (
     id: number
@@ -753,12 +943,16 @@ if (!logged) {
           <div className="flex gap-2 mt-4">
 
             <button
-              onClick={() => {
+              onClick={async () => {
 
  
   setEditingId(
     product.id
   );
+
+  setSelectedRestaurantId(
+  product.restaurant_id
+);
 
   setName(
     product.name
@@ -786,6 +980,34 @@ if (!logged) {
 setCurrentImageUrl(
   product.image_url || ""
 );
+
+setSelectedGroupId(
+  null
+);
+
+setModifiers([]);
+
+const { data } =
+  await supabase
+    .from(
+      "product_modifier_groups"
+    )
+    .select("*")
+    .eq(
+      "product_id",
+      product.id
+    );
+
+console.log(
+  "MODIFIER GROUPS",
+  data
+);
+
+setModifierGroups(
+  data || []
+);
+
+
   setShowModal(true);
 
 }}
@@ -1319,6 +1541,225 @@ setCurrentImageUrl(
           "
         />
 
+        {editingId && (
+
+  <div>
+
+    <hr className="my-4 border-zinc-700" />
+
+    <h3
+      className="
+        text-lg
+        font-bold
+        mb-3
+      "
+    >
+      Modificadores
+    </h3>
+
+    <div
+  className="
+    flex
+    gap-2
+    mb-3
+  "
+>
+
+  <input
+    value={newGroupName}
+    onChange={(e) =>
+      setNewGroupName(
+        e.target.value
+      )
+    }
+    placeholder="
+      Ej: Tipo de pan
+    "
+    className="
+      flex-1
+      bg-zinc-800
+      rounded-xl
+      px-4
+      py-3
+    "
+  />
+
+  <button
+  onClick={
+    addModifierGroup
+  }
+  className="
+    bg-purple-600
+    px-4
+    rounded-xl
+  "
+>
+  Añadir
+</button>
+
+</div>
+<div className="space-y-2">
+
+  {modifierGroups.map(
+  (group) => (
+
+    <div
+      key={group.id}
+      onClick={async () => {
+
+  setSelectedGroupId(
+    group.id
+  );
+
+  const { data } =
+    await supabase
+      .from(
+        "product_modifiers"
+      )
+      .select("*")
+      .eq(
+        "group_id",
+        group.id
+      );
+
+  setModifiers(
+    data || []
+  );
+
+}}
+      className={`
+        rounded-xl
+        px-4
+        py-3
+        cursor-pointer
+
+        ${
+          selectedGroupId ===
+          group.id
+
+            ? "bg-purple-600"
+
+            : "bg-zinc-800"
+        }
+      `}
+    >
+      ⚙️ {group.name}
+    </div>
+
+  )
+)}
+
+{selectedGroupId && (
+
+  <div
+    className="
+      mt-4
+      border-t
+      border-zinc-700
+      pt-4
+    "
+  >
+
+    <div
+      className="
+        flex
+        gap-2
+        mb-3
+      "
+    >
+
+      <input
+        value={newModifierName}
+        onChange={(e) =>
+          setNewModifierName(
+            e.target.value
+          )
+        }
+        placeholder="
+          Ej: Blanco
+        "
+        className="
+          flex-1
+          bg-zinc-800
+          rounded-xl
+          px-4
+          py-3
+        "
+      />
+
+      <button
+  onClick={
+    addModifier
+  }
+  className="
+    bg-green-600
+    px-4
+    rounded-xl
+  "
+>
+  Añadir
+</button>
+
+
+
+    </div>
+
+    <div className="space-y-2">
+
+  {modifiers.map(
+  (modifier) => (
+
+    <div
+      key={modifier.id}
+      className="
+        bg-zinc-700
+        rounded-xl
+        px-4
+        py-2
+        flex
+        justify-between
+        items-center
+      "
+    >
+
+      <span>
+        {modifier.name}
+      </span>
+
+      <button
+        onClick={() =>
+          deleteModifier(
+            modifier.id
+          )
+        }
+        className="
+          text-red-400
+          font-bold
+          hover:text-red-300
+        "
+      >
+        ❌
+      </button>
+
+    </div>
+
+  )
+)}
+
+</div>
+
+  </div>
+
+)}
+
+</div>
+  </div>
+
+
+
+
+)}
+
         <div
           className="
             flex
@@ -1359,6 +1800,13 @@ setDescription("");
 setPrice("");
 setOrden("");
 setCurrentImageUrl("");
+setSelectedGroupId(
+  null
+);
+
+setModifiers([]);
+
+setModifierGroups([]);
 
             }}
             className="

@@ -34,6 +34,11 @@ useState("");
   setModifierGroups] =
 useState<any[]>([]);
 
+const [
+  newModifierPrice,
+  setNewModifierPrice
+] = useState("0");
+
 const [selectedRestaurantId,
   setSelectedRestaurantId] =
 useState<number | null>(
@@ -398,7 +403,10 @@ async () => {
         name:
           newModifierName,
 
-        price: 0
+        price:
+  Number(
+    newModifierPrice
+  )
 
       }]);
 
@@ -426,6 +434,10 @@ async () => {
   );
 
   setNewModifierName("");
+
+  setNewModifierPrice(
+  "0"
+);
 
 };
 
@@ -1643,7 +1655,127 @@ setModifierGroups(
         }
       `}
     >
-      ⚙️ {group.name}
+      <div
+  className="
+    flex
+    justify-between
+    items-center
+  "
+>
+
+  <span>
+    ⚙️ {group.name}
+  </span>
+
+  <div
+    className="
+      flex
+      gap-2
+    "
+    onClick={(e) =>
+      e.stopPropagation()
+    }
+  >
+
+    <button
+      onClick={async () => {
+
+        await supabase
+          .from(
+            "product_modifier_groups"
+          )
+          .update({
+            required:
+              !group.required
+          })
+          .eq(
+            "id",
+            group.id
+          );
+
+        setModifierGroups(
+          modifierGroups.map(
+            (g) =>
+              g.id === group.id
+                ? {
+                    ...g,
+                    required:
+                      !g.required
+                  }
+                : g
+          )
+        );
+
+      }}
+      className={`
+        px-2
+        py-1
+        rounded-lg
+        text-xs
+
+        ${
+          group.required
+
+            ? "bg-green-600"
+
+            : "bg-zinc-700"
+        }
+      `}
+    >
+      Obligatorio
+    </button>
+
+    <button
+      onClick={async () => {
+
+        await supabase
+          .from(
+            "product_modifier_groups"
+          )
+          .update({
+            multiple:
+              !group.multiple
+          })
+          .eq(
+            "id",
+            group.id
+          );
+
+        setModifierGroups(
+          modifierGroups.map(
+            (g) =>
+              g.id === group.id
+                ? {
+                    ...g,
+                    multiple:
+                      !g.multiple
+                  }
+                : g
+          )
+        );
+
+      }}
+      className={`
+        px-2
+        py-1
+        rounded-lg
+        text-xs
+
+        ${
+          group.multiple
+
+            ? "bg-blue-600"
+
+            : "bg-zinc-700"
+        }
+      `}
+    >
+      Múltiple
+    </button>
+
+  </div>
+
+</div>
     </div>
 
   )
@@ -1686,6 +1818,22 @@ setModifierGroups(
           py-3
         "
       />
+      <input
+  value={newModifierPrice}
+  onChange={(e) =>
+    setNewModifierPrice(
+      e.target.value
+    )
+  }
+  placeholder="0.00"
+  className="
+    w-28
+    bg-zinc-800
+    rounded-xl
+    px-4
+    py-3
+  "
+/>
 
       <button
   onClick={
@@ -1723,8 +1871,19 @@ setModifierGroups(
     >
 
       <span>
-        {modifier.name}
-      </span>
+  {modifier.name}
+
+  {Number(modifier.price) > 0 && (
+    <span
+      className="
+        text-green-400
+        ml-2
+      "
+    >
+      +{Number(modifier.price).toFixed(2)}€
+    </span>
+  )}
+</span>
 
       <button
         onClick={() =>

@@ -19,6 +19,31 @@ const [
 const [categoria, setCategoria] =
 useState("");
 
+const [
+  showModifiersModal,
+  setShowModifiersModal
+] = useState(false);
+
+const [
+  selectedProduct,
+  setSelectedProduct
+] = useState<any>(null);
+
+const [
+  modifierGroups,
+  setModifierGroups
+] = useState<any[]>([]);
+
+const [
+  modifierOptions,
+  setModifierOptions
+] = useState<any>({});
+
+const [
+  selectedModifiers,
+  setSelectedModifiers
+] = useState<any>({});
+
 const [products, setProducts] =
 useState<any[]>([]);
 
@@ -237,9 +262,22 @@ console.log("ERROR CATEGORIES", error);
     "restaurant"
   );
 
-  console.log("Mesa URL:", mesaUrl);
-console.log("Mesa guardada:", localStorage.getItem("mesa"));
-console.log("Timestamp:", localStorage.getItem("mesa_timestamp"));
+  console.log(
+  "URL COMPLETA",
+  window.location.href
+);
+
+console.log(
+  "restaurant param",
+  restaurantUrl
+);
+
+console.log(
+  "restaurant localStorage",
+  localStorage.getItem(
+    "restaurant_id"
+  )
+);
 
   if (mesaUrl) {
 
@@ -521,6 +559,79 @@ const addToCart = (item: any) => {
   ]);
 
 };
+const openProduct = async (
+  product: any
+) => {
+
+  const { data: groups } =
+    await supabase
+      .from(
+        "product_modifier_groups"
+      )
+      .select("*")
+      .eq(
+        "product_id",
+        product.id
+      );
+
+  if (
+    !groups ||
+    groups.length === 0
+  ) {
+
+    addToCart(product);
+    return;
+
+  }
+
+  const opciones: any = {};
+
+  for (
+    const group of groups
+  ) {
+
+    const {
+      data
+    } = await supabase
+      .from(
+        "product_modifiers"
+      )
+      .select("*")
+      .eq(
+        "group_id",
+        group.id
+      );
+
+    opciones[group.id] =
+      data || [];
+
+  }
+
+  setSelectedProduct(
+    product
+  );
+
+  setModifierGroups(
+    groups
+  );
+
+  setModifierOptions(
+    opciones
+  );
+
+  setSelectedModifiers(
+    {}
+  );
+alert(
+  `Grupos encontrados: ${
+    groups?.length || 0
+  }`
+);
+  setShowModifiersModal(
+    true
+  );
+
+};
 
 const removeFromCart = (index: number) => {
   setCart(cart.filter((_, i) => i !== index));
@@ -528,6 +639,52 @@ const removeFromCart = (index: number) => {
 const total = cart.reduce((acc, item) => {
   return acc + Number(item.price);
 }, 0);
+
+const modifiersTotal =
+  Object.values(
+    selectedModifiers
+  ).reduce(
+    (
+      acc: number,
+      value: any
+    ) => {
+
+      if (
+        Array.isArray(value)
+      ) {
+
+        return (
+          acc +
+          value.reduce(
+            (
+              sum: number,
+              item: any
+            ) =>
+              sum +
+              Number(
+                item.price || 0
+              ),
+            0
+          )
+        );
+
+      }
+
+      return (
+        acc +
+        Number(
+          value?.price || 0
+        )
+      );
+
+    },
+    0
+  );
+
+  const productTotal =
+  Number(
+    selectedProduct?.price || 0
+  ) + modifiersTotal;
 
 const cartAgrupado = Object.values(
   cart.reduce((acc: any, item: any) => {
@@ -558,6 +715,31 @@ const items = products.filter(
     String(
       product.category_id
     ) === categoria
+);
+
+console.log(
+  "restaurantId:",
+  restaurantId
+);
+
+console.log(
+  "categorias:",
+  categorias
+);
+
+console.log(
+  "categoria seleccionada:",
+  categoria
+);
+
+console.log(
+  "products:",
+  products.length
+);
+
+console.log(
+  "items:",
+  items.length
 );
 
 return ( <main>
@@ -679,7 +861,9 @@ return ( <main>
     )}
 
     <button
-  onClick={() => addToCart(item)}
+  onClick={() =>
+  openProduct(item)
+}
   className="mt-5 w-full bg-[#b9742d] hover:bg-[#c98237] py-3 rounded-xl font-semibold transition"
 >
   Añadir al carrito
@@ -849,13 +1033,37 @@ return ( <main>
 
 )}
 
-    {pedidoActualAgrupado.map((item: any, index) => (
+    {pedidoItems.map((item: any) => (
 
-  <p key={index}>
-    • {item.name}
-    {item.cantidad > 1 &&
-      ` x${item.cantidad}`}
-  </p>
+  <div
+    key={item.id}
+    className="
+      flex
+      justify-between
+      text-sm
+      mb-1
+    "
+  >
+
+    <span>
+      {item.product_name}
+    </span>
+
+    <span
+      className={
+        item.estado === "Pendiente"
+          ? "text-yellow-500"
+          : item.estado === "Preparando"
+          ? "text-orange-500"
+          : item.estado === "Listo"
+          ? "text-green-500"
+          : "text-zinc-400"
+      }
+    >
+      {item.estado}
+    </span>
+
+  </div>
 
 ))}
 
@@ -891,11 +1099,30 @@ return ( <main>
   >
 
     <div>
-      <p>
-  {item.name}
-  {item.cantidad > 1 &&
-    ` x${item.cantidad}`}
-</p>
+
+  <p>
+    {item.name}
+    {item.cantidad > 1 &&
+      ` x${item.cantidad}`}
+  </p>
+
+  {item.modifiers?.length > 0 && (
+
+    <p
+      className="
+        text-xs
+        text-zinc-400
+        mt-1
+      "
+    >
+      {item.modifiers
+        .map(
+          (m: any) => m.name
+        )
+        .join(" · ")}
+    </p>
+
+  )}
 <button
   onClick={() => {
 
@@ -1185,7 +1412,18 @@ await supabase
   cantidad: 1,
 
   comentario:
-    item.comentario || "",
+  [
+    item.comentario,
+
+    ...(item.modifiers || [])
+      .map(
+        (m: any) =>
+          m.name
+      )
+
+  ]
+    .filter(Boolean)
+    .join(" · "),
 
   estado: "Pendiente",
   area: item.area,
@@ -1255,7 +1493,18 @@ const { data: itemsData, error: itemsError } =
   cantidad: 1,
 
   comentario:
-    item.comentario || "",
+  [
+    item.comentario,
+
+    ...(item.modifiers || [])
+      .map(
+        (m: any) =>
+          m.name
+      )
+
+  ]
+    .filter(Boolean)
+    .join(" · "),
 
   estado: "Pendiente",
   area: item.area,
@@ -1419,6 +1668,248 @@ await supabase
   </div>
 
   </>
+
+)}
+{showModifiersModal && (
+
+  <div
+    className="
+      fixed
+      inset-0
+      bg-black/80
+      z-[999]
+      flex
+      items-center
+      justify-center
+      p-6
+    "
+  >
+
+    <div
+      className="
+        bg-zinc-900
+        rounded-3xl
+        w-full
+        max-w-xl
+        p-8
+      "
+    >
+
+      <h2
+        className="
+          text-3xl
+          font-black
+          mb-6
+        "
+      >
+        {selectedProduct?.name}
+      </h2>
+
+      {modifierGroups.map(
+        (group) => (
+
+          <div
+            key={group.id}
+            className="mb-8"
+          >
+
+            <h3
+  className="
+    text-xs
+    uppercase
+    tracking-wider
+    text-zinc-400
+    mb-2
+    font-semibold
+  "
+>
+              {group.name}
+
+              {group.required &&
+                " *"}
+            </h3>
+
+            <div
+  className="
+    flex
+    flex-wrap
+    gap-2
+  "
+>
+
+              {(
+                modifierOptions[
+                  group.id
+                ] || []
+              ).map(
+                (option: any) => (
+
+                  <button
+  key={option.id}
+  onClick={() => {
+
+    if (group.multiple) {
+
+  setSelectedModifiers(
+    (prev: any) => {
+
+      const actuales =
+  Array.isArray(
+    prev[group.id]
+  )
+    ? prev[group.id]
+    : [];
+
+      const existe =
+        actuales.some(
+          (m: any) =>
+            m.id === option.id
+        );
+
+      return {
+
+        ...prev,
+
+        [group.id]:
+          existe
+
+            ? actuales.filter(
+                (m: any) =>
+                  m.id !== option.id
+              )
+
+            : [
+                ...actuales,
+                option
+              ]
+
+      };
+
+    }
+  );
+
+} else {
+
+  setSelectedModifiers(
+    (prev: any) => ({
+
+      ...prev,
+
+      [group.id]:
+        option
+
+    })
+  );
+
+}
+
+  }}
+  className={`
+    px-4
+    py-2
+    rounded-full
+    border
+    text-sm
+    font-medium
+    transition
+
+    ${
+  (
+    group.multiple
+      ? Array.isArray(
+          selectedModifiers[group.id]
+        ) &&
+        selectedModifiers[
+          group.id
+        ].some(
+          (m: any) =>
+            m.id === option.id
+        )
+      : selectedModifiers[
+          group.id
+        ]?.id === option.id
+  )
+    ? `
+        bg-[#b9742d]
+        border-[#b9742d]
+        text-white
+      `
+    : `
+        bg-zinc-800
+        border-zinc-700
+        hover:bg-zinc-700
+      `
+}
+  `}
+>
+                    {option.name}
+
+                    {Number(
+                      option.price
+                    ) > 0 && (
+                      <span
+                        className="
+                          text-green-400
+                          ml-2
+                        "
+                      >
+                        +{option.price}€
+                      </span>
+                    )}
+                  </button>
+
+                )
+              )}
+
+            </div>
+
+          </div>
+
+        )
+      )}
+
+      <button
+  onClick={() => {
+
+  const modifiers = Object.values(
+    selectedModifiers
+  ).flatMap(
+    (value: any) =>
+
+      Array.isArray(value)
+        ? value
+        : [value]
+  );
+
+  addToCart({
+
+    ...selectedProduct,
+
+    price: productTotal,
+
+    modifiers
+
+  });
+
+  setShowModifiersModal(
+    false
+  );
+
+}}
+  className="
+    w-full
+    bg-[#b9742d]
+    py-3
+    rounded-xl
+    font-bold
+  "
+>
+  Añadir al carrito · {productTotal.toFixed(2)}€
+</button>
+
+    </div>
+
+  </div>
 
 )}
 </main>

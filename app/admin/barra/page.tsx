@@ -532,8 +532,12 @@ Mesa {
          acc[item.product_name] = {
   nombre:
     item.product_name,
+
   cantidad:
-    item.cantidad || 1
+    item.cantidad || 1,
+
+  comentario:
+    item.comentario || ""
 };
 
         } else {
@@ -553,14 +557,32 @@ Mesa {
 
   ).map((producto: any) => (
 
+    <div
+  key={producto.nombre}
+  className="mb-2"
+>
+
+  <p>
+    🍹 {producto.nombre}
+    {" x"}
+    {producto.cantidad}
+  </p>
+
+  {producto.comentario && (
+
     <p
-      key={producto.nombre}
-      className="mb-1"
+      className="
+        text-xs
+        text-zinc-400
+        ml-5
+      "
     >
-      🍔 {producto.nombre}
-      {" x"}
-      {producto.cantidad}
+      {producto.comentario}
     </p>
+
+  )}
+
+</div>
 
   ))
 }

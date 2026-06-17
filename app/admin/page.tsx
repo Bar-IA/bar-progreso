@@ -85,6 +85,22 @@ const [editingCategoryName,
   setEditingCategoryName] =
   useState("");
 
+  const [logoUrl,
+  setLogoUrl] =
+  useState("");
+
+const [primaryColor,
+  setPrimaryColor] =
+  useState("");
+
+const [secondaryColor,
+  setSecondaryColor] =
+  useState("");
+
+const [coverImage,
+  setCoverImage] =
+  useState("");
+
  const iconos: any = {
 
   burger: "🍔",
@@ -151,6 +167,8 @@ const [editingCategoryName,
 
   });
 
+
+
   setOpenCategories(
     abiertas
   );
@@ -166,13 +184,47 @@ const [editingCategoryName,
 }
 
   };
+  const loadRestaurant =
+async () => {
+
+  const { data, error } =
+    await supabase
+      .from("restaurants")
+      .select("*")
+      .eq("id", 1)
+      .single();
+
+  if (error) {
+
+    console.error(error);
+    return;
+
+  }
+
+  setLogoUrl(
+    data.logo_url || ""
+  );
+
+  setPrimaryColor(
+    data.primary_color || ""
+  );
+
+  setSecondaryColor(
+    data.secondary_color || ""
+  );
+
+  setCoverImage(
+    data.cover_image || ""
+  );
+
+};
 
 
-
-  useEffect(() => {
+ useEffect(() => {
 
   loadProducts();
   loadCategories();
+  loadRestaurant();
 
 }, []);
 
@@ -568,7 +620,50 @@ const toggleCategory = async (
 
 };
 
+ const saveRestaurant =
+async () => {
+
+  const { error } =
+    await supabase
+      .from("restaurants")
+      .update({
+
+        logo_url:
+          logoUrl,
+
+        primary_color:
+          primaryColor,
+
+        secondary_color:
+          secondaryColor,
+
+        cover_image:
+          coverImage
+
+      })
+      .eq("id", 1);
+
+  if (error) {
+
+    console.error(error);
+
+    alert(
+      "Error al guardar"
+    );
+
+    return;
+
+  }
+
+  alert(
+    "Restaurante actualizado"
+  );
+
+};
+
 const saveCategory = async () => {
+
+ 
 
   if (
     !editingCategoryId
@@ -794,6 +889,26 @@ if (!logged) {
   >
     📂 Categorías
   </button>
+
+  <button
+  onClick={() =>
+    setVista("restaurante")
+  }
+  className={`
+    px-4
+    py-2
+    rounded-xl
+    font-semibold
+
+    ${
+      vista === "restaurante"
+        ? "bg-[#b9742d]"
+        : "bg-zinc-800"
+    }
+  `}
+>
+  ⚙️ Restaurante
+</button>
 
 </div>
 {
@@ -1370,6 +1485,119 @@ setModifierGroups(
         </div>
 
       ))}
+
+    </div>
+
+  )
+}
+
+{
+  vista === "restaurante" && (
+
+    <div
+      className="
+        bg-zinc-900
+        rounded-3xl
+        p-6
+      "
+    >
+
+      <h2
+        className="
+          text-2xl
+          font-bold
+          mb-6
+        "
+      >
+        ⚙️ Restaurante
+      </h2>
+
+      <div className="space-y-4">
+
+        <input
+  value={logoUrl}
+  onChange={(e) =>
+    setLogoUrl(
+      e.target.value
+    )
+  }
+  placeholder="Logo URL"
+  className="
+    w-full
+    bg-zinc-800
+    rounded-xl
+    px-4
+    py-3
+  "
+/>
+
+        <input
+  value={primaryColor}
+  onChange={(e) =>
+    setPrimaryColor(
+      e.target.value
+    )
+  }
+  placeholder="Color principal"
+  className="
+    w-full
+    bg-zinc-800
+    rounded-xl
+    px-4
+    py-3
+  "
+/>
+
+        <input
+  value={secondaryColor}
+  onChange={(e) =>
+    setSecondaryColor(
+      e.target.value
+    )
+  }
+  placeholder="Color secundario"
+  className="
+    w-full
+    bg-zinc-800
+    rounded-xl
+    px-4
+    py-3
+  "
+/>
+
+        <input
+  value={coverImage}
+  onChange={(e) =>
+    setCoverImage(
+      e.target.value
+    )
+  }
+  placeholder="Imagen portada"
+  className="
+    w-full
+    bg-zinc-800
+    rounded-xl
+    px-4
+    py-3
+  "
+/>
+
+        <button
+  onClick={
+    saveRestaurant
+  }
+  className="
+    bg-green-600
+    px-6
+    py-3
+    rounded-xl
+    font-semibold
+  "
+>
+  Guardar
+</button>
+
+      </div>
 
     </div>
 
